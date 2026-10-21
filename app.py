@@ -946,6 +946,12 @@ app = FastAPI(title="MasteringApp")
 
 @app.get("/")
 def index():
+    return FileResponse(STATIC_DIR / "product.html")
+
+
+@app.get("/app")
+@app.get("/app/index.html")
+def app_ui():
     return FileResponse(STATIC_DIR / "index.html")
 
 

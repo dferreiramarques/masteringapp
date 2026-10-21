@@ -62,7 +62,7 @@ mastering-app\run.bat
 O `run.bat` prepara o ambiente sozinho: se o `.venv` não existir, cria-o e
 instala as dependências de `requirements.txt` (procura Python 3.12 no launcher
 `py`, no PATH, ou em `%LOCALAPPDATA%\Programs\Python\Python312`). Abre
-`http://localhost:7860` automaticamente.
+`http://localhost:7860/app` automaticamente.
 
 ### De um clone do repositório
 
@@ -75,16 +75,21 @@ run.bat
 É a app completa (inclui a product page em `/product`); os binários (`dist/`)
 não vão para o git — para o instalador/portátil, publica-os nas Releases.
 
-## Product page
+## Páginas
 
-`/product` — página do produto (estilo kerf.monco.io, primary amarelo torrado
-`#d9a92c` = cor do chip MANUAL): herói, features, modos manual/auto, cadeia de
-9 estágios e downloads. Sirve `static/product.html`. Os CTAs de download usam
-`/get-setup` e `/get-portable`, que servem os binários de `dist/`
-(`MasteringApp-Setup-1.0.0.exe`, `MasteringApp-portable.zip`) quando existem —
-procura primeiro ao lado do exe (empacotado), depois `<projeto>/dist/` (dev);
-sem binário, o botão passa a «Indisponível nesta instalação». Chip «PRODUTO» no
-cabeçalho da app liga à página.
+- **`/`** — página do produto (estilo kerf.monco.io, primary amarelo torrado
+  `#d9a92c` = cor do chip MANUAL): herói, features, modos manual/auto, cadeia
+  de 9 estágios e downloads. Sirve `static/product.html`, em **PT e EN**
+  (toggle no cabeçalho, guarda a escolha no `localStorage`).
+- **`/app`** (=`/app/index.html`) — a app: análise, cadeia e export
+  (`static/index.html`). Os CTAs «Abrir a app» da página de produto apontam
+  aqui; a janela nativa do .exe abre `/app` também.
+- Os CTAs de download usam `/get-setup` e `/get-portable`, que servem os
+  binários de `dist/`
+  (`MasteringApp-Setup-1.0.0.exe`, `MasteringApp-portable.zip`) quando
+  existem — procura primeiro ao lado do exe (empacotado), depois
+  `<projeto>/dist/` (dev); sem binário, o botão passa a «Indisponível nesta
+  instalação» (traduzido). Chip «PRODUTO» no cabeçalho da app liga à página.
 
 ## Executável local (PyInstaller)
 

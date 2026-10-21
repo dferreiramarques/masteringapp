@@ -39,6 +39,7 @@ def pick_port(preferred):
 
 PORT = int(os.environ["PORT"]) if os.environ.get("PORT") else pick_port(7860)
 URL = f"http://127.0.0.1:{PORT}"
+APP_URL = URL + "/app"   # a UI da app (a raiz passa a ser a página de produto)
 
 server = uvicorn.Server(uvicorn.Config(appmod.app, host="127.0.0.1",
                                        port=PORT, log_config=None,
@@ -100,7 +101,7 @@ def fallback_status_window():
                   font=("Segoe UI", 10, "bold" if gold else "normal")
                   ).pack(side="left", padx=(0, 10))
 
-    mkbtn("Abrir no browser", lambda: webbrowser.open(URL))
+    mkbtn("Abrir no browser", lambda: webbrowser.open(APP_URL))
     mkbtn("Sair", quit_app)
 
     opened = [False]
@@ -114,9 +115,9 @@ def fallback_status_window():
             return
         if not opened[0]:
             opened[0] = True
-            status_var.set(f"A correr em {URL}  —  o app fica no browser")
+            status_var.set(f"A correr em {APP_URL}  —  o app fica no browser")
             status.config(fg="#3fae5a")
-            webbrowser.open(URL)
+            webbrowser.open(APP_URL)
 
     root.after(400, poll)
     root.protocol("WM_DELETE_WINDOW", quit_app)
@@ -133,13 +134,13 @@ def main():
         import webview
         # janela nativa: a UI corre dentro, sem browser externo.
         # (WebView2 — se não existir na máquina, ValueError/RuntimeError)
-        webview.create_window("MasteringApp", URL, width=1280, height=860,
+        webview.create_window("MasteringApp", APP_URL, width=1280, height=860,
                               min_size=(980, 640), background_color="#0e0e10")
         webview.start(gui="edgechromium")
     except Exception as e:
         # fallback: browser externo + janela de status
         print("webview indisponível:", e)
-        webbrowser.open(URL)
+        webbrowser.open(APP_URL)
         fallback_status_window()
 
     server.should_exit = True
