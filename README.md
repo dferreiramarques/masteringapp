@@ -59,7 +59,21 @@ Repetir um export já renderizado
 mastering-app\run.bat
 ```
 
-Abre `http://localhost:7860` automaticamente.
+O `run.bat` prepara o ambiente sozinho: se o `.venv` não existir, cria-o e
+instala as dependências de `requirements.txt` (procura Python 3.12 no launcher
+`py`, no PATH, ou em `%LOCALAPPDATA%\Programs\Python\Python312`). Abre
+`http://localhost:7860` automaticamente.
+
+### De um clone do repositório
+
+```
+git clone <repo>
+cd mastering-app
+run.bat
+```
+
+É a app completa (inclui a product page em `/product`); os binários (`dist/`)
+não vão para o git — para o instalador/portátil, publica-os nas Releases.
 
 ## Product page
 
