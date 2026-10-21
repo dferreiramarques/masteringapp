@@ -1,0 +1,9 @@
+# Pinadas às versões validadas na suite de testes do projeto
+fastapi==0.156.2
+uvicorn==0.54.0
+python-multipart==0.0.32
+numpy==2.5.4
+scipy==1.18.1
+soundfile==0.14.0        # inclui libsndfile na wheel (não precisa de apt extra)
+pyloudnorm==0.2.0
+pedalboard==0.9.26

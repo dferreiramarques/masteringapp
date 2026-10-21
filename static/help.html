@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MasteringApp — Documentação / Ajuda</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg:#121216; --card:#1b1b22; --line:#2c2c36; --txt:#e8e6e3; --dim:#9a97a0; --acc:#e2b53d; --red:#d05a4e; --green:#7dbb7d; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt);
+         font-family:"Segoe UI", system-ui, sans-serif; padding:32px 16px 64px; }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing:.5px; }
+  h1 span { color: var(--acc); }
+  h2 { font-size:15px; margin:34px 0 10px; color: var(--acc); letter-spacing:.6px;
+       text-transform:uppercase; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { font-size:14px; margin:20px 0 6px; color:var(--txt); }
+  p  { font-size:14px; line-height:1.65; margin:8px 0; }
+  .sub { color: var(--dim); margin: 0 0 10px; font-size: 14px; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius:10px;
+          padding:18px 20px; margin:14px 0; }
+  a { color: var(--acc); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .dim { color:var(--dim); }
+  code { font-family: ui-monospace, Consolas, monospace; font-size:13px;
+         background:#24242c; border:1px solid var(--line); border-radius:4px;
+         padding:1px 6px; }
+  table { width:100%; border-collapse: collapse; font-size:13.5px; margin:10px 0; }
+  th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line);
+           vertical-align:top; }
+  th { color: var(--dim); font-weight:500; font-size:12px; text-transform:uppercase;
+       letter-spacing:.6px; }
+  .nav { position:sticky; top:0; z-index:5; background:var(--bg); padding:10px 0;
+         border-bottom:1px solid var(--line); margin-bottom:18px; display:flex;
+         gap:6px; flex-wrap:wrap; }
+  .nav a { font-size:12.5px; color:var(--dim); padding:4px 10px;
+           border:1px solid var(--line); border-radius:5px; text-decoration:none; }
+  .nav a:hover { color:var(--acc); border-color:var(--acc); }
+  .flow { display:flex; flex-direction:column; margin:14px 0; }
+  .frow { display:flex; align-items:center; }
+  .fbox { width:100%; background:#24242c; border:1px solid var(--line); border-radius:8px;
+          padding:10px 14px; }
+  .fbox b { color:var(--acc); font-size:13.5px; display:block; margin-bottom:2px; }
+  .fbox small { color:var(--dim); font-size:12px; line-height:1.45; display:block; }
+  .farrow { text-align:center; color:var(--acc); font-size:15px; padding:3px 0; }
+  .farrow::before { content:"↓"; }
+  .fsplit { display:flex; gap:10px; }
+  .fsplit .fbox { flex:1; }
+  .tip { border-left:3px solid var(--acc); background:#24242c; padding:10px 14px;
+         border-radius:0 8px 8px 0; font-size:13.5px; margin:12px 0; line-height:1.55; }
+  .tip.warn { border-left-color: var(--red); }
+  .tip.ok { border-left-color: var(--green); }
+  .gloss dt { color:var(--acc); font-weight:600; font-size:13.5px; margin-top:12px; }
+  .gloss dd { margin:2px 0 0 0; font-size:13.5px; line-height:1.55; }
+  .kbd { background:#24242c; border:1px solid var(--line); border-radius:4px;
+         padding:1px 7px; font-size:12px; color:var(--dim); font-family:ui-monospace,monospace; }
+  ul { font-size:13.5px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Master<span>ing</span>App — Documentação</h1>
+  <p class="sub">Como funciona a cadeia de masterização, o que cada controlo faz, a arquitetura da app e um glossário de áudio. O botão <span class="kbd">?</span> no app abre esta página.</p>
+
+  <nav class="nav">
+    <a href="#fluxo">Fluxo do utilizador</a>
+    <a href="#cadeia">Cadeia de masterização</a>
+    <a href="#estagios">Estágios em detalhe</a>
+    <a href="#metricas">Métricas</a>
+    <a href="#controles">Controles</a>
+    <a href="#export">Export</a>
+    <a href="#arquitetura">Arquitetura</a>
+    <a href="#api">API</a>
+    <a href="#glossario">Glossário</a>
+  </nav>
+
+  <!-- ==================================================================== -->
+  <h2 id="fluxo">O fluxo do utilizador (5 passos)</h2>
+  <div class="card">
+    <p><b>1 · Mistura</b> — escolhes o ficheiro stereo (wav/flac/mp3) e o género-alvo. O servidor analisa a mistura (LUFS-I, true peak 4× oversampled, LRA, correlação estéreo, espectro em 1/3 de oitava) e corre a cadeia completa com o perfil do género escolhido.</p>
+    <p><b>2 · Perfil (fine-tuning)</b> — 18 parâmetros editáveis. Cada alteração re-masteriza sem novo upload: botão «música completa» (~3–6 s) ou «pré-escuta» (render dos 20 s mais energéticos, ~2 s). No modo <i>live</i>, ao soltar qualquer slider o re-render acontece automaticamente.</p>
+    <p><b>3 · A/B</b> — comparação A (mistura) / B (master) com volumes equalizados (compensa a diferença de LUFS) e gráfico de espectro antes/depois. O LED verde/amarelo/vermelho indica quantas amostras estão a «tocar o topo» do limiter.</p>
+    <p><b>4 · Diagnóstico</b> — métricas, espectro vs curva-alvo do género, sugestões de balanço e a cadeia aplicada em texto. O botão «Ajustar à minha mistura (auto)» mede a tua mistura (excessos boomy/boxy/harsh + LRA), ajusta os sliders <b>sobre o que já tens</b> (respeita escolhas manuais; bio só ativa, nunca reduz) e mostra a lista de mudanças. O botão «Repor perfil» devolve os sliders ao perfil puro do género.</p>
+    <p><b>5 · Export</b> — render final normalizado à meta de cada plataforma (ver <a href="#export">Export</a>), descarga em WAV 24-bit.</p>
+  </div>
+
+  <!-- ==================================================================== -->
+  <h2 id="cadeia">A cadeia de masterização</h2>
+  <p>A cadeia corre sempre na mesma ordem. Clica num estágio para ir à explicação detalhada.</p>
+  <div class="card">
+    <div class="flow">
+      <div class="frow"><div class="fbox"><b><a href="#st-hpf">1 · HPF (limpeza sub)</a></b><small>filtro passa-alto 12 dB/oct (por defeito ~24 Hz) — corta o sub-armónico inaudível e liberta headroom.</small></div></div>
+      <div class="farrow"></div>
+      <div class="frow"><div class="fbox"><b><a href="#st-eq">2 · EQ corretivo</a></b><small>compara o espectro da mistura com a curva-alvo do género e aplica filtros nos desvios; a intensidade escala a força.</small></div></div>
+      <div class="farrow"></div>
+      <div class="frow"><div class="fbox"><b><a href="#st-bio">2b · Mitigação biológica</a></b><small>desligada por defeito — cortes ergonómicos nas zonas que cansam o ouvido (harsh 2–5 kHz, sibilância 5–10 kHz, boxy, boomy).</small></div></div>
+      <div class="farrow"></div>
+      <div class="frow"><div class="fbox"><b><a href="#st-tape">3 · Saturação de fita</a></b><small>slope unitária: só amolece os picos acima de −6 dBFS; o resto passa intacto. Desligada por defeito.</small></div></div>
+      <div class="farrow"></div>
+      <div class="frow"><div class="fbox"><b><a href="#st-comp">3b/4 · Pre-ganho + Compressor glue</a></b><small>normaliza o nível de trabalho e aplica a compressão lenta que «cola» a mistura.</small></div></div>
+      <div class="farrow"></div>
+      <div class="frow"><div class="fbox"><b><a href="#st-shelf">5 · Shelves tonais</a></b><small>shelves largos no grave e nos agudos (pre-definidos por género, ajustáveis).</small></div></div>
+      <div class="farrow"></div>
+      <div class="frow"><div class="fbox"><b><a href="#st-verb">5b · Ambiência (reverb de mix)</a></b><small>desligado por defeito — sala sintética curta e amortecida, só para «colar» uma mistura muito seca (técnica de depth, em % baixas).</small></div></div>
+      <div class="farrow"></div>
+      <div class="frow"><div class="fbox"><b><a href="#st-ms">6a · Low-end mono + Largura de imagem</a></b><small>passa-alto no canal side (solidifica o grave em qualquer sistema); depois a largura M/S escala o side (100 % = neutro).</small></div></div>
+      <div class="farrow"></div>
+      <div class="frow"><div class="fbox"><b><a href="#st-exc">6b · Exciter harmónico</a></b><small>desligado por defeito — réplicas de 2.ª/3.ª harmónica (2,8–8,5 kHz) misturadas sobre o sinal NÃO saturado.</small></div></div>
+      <div class="farrow"></div>
+      <div class="frow"><div class="fbox" style="border-color:var(--acc)"><b><a href="#st-max">7 · Loudness + Maximizer estilo Waves L2</a></b><small>push estático → loop de loudness → limitador true-peak 4× oversampled até o ceiling → Maxximizer/IDR opcional. Alimenta o LED de clipping do passo 3.</small></div></div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <h2 id="estagios">Estágios em detalhe</h2>
+
+  <h3 id="st-hpf">1 · HPF (limpeza sub)</h3>
+  <p>Biquad passa-alto (<code>rbj_highpass</code>, cascata ×2 = 12 dB/oct). O conteúdo abaixo de ~25 Hz quase nunca é audível, mas ocupa headroom. Cada género define o corte: 18 Hz no ambient, 24–28 Hz nos géneros elétricos. Ajustável de 16 a 60 Hz.</p>
+
+  <h3 id="st-eq">2 · EQ corretivo + curvas-alvo</h3>
+  <p>Para cada banda de 1/3 de oitava (20 Hz–20 kHz): desvio = espectro da mistura − curva do género. Cada desvio relevante (~&gt;1 dB, escalado) gera um filtro de pico (Q 2,2) com ganho proporcional à <i>Intensidade do EQ corretivo</i> (100 % = 1:1). É um «match-to-target»: só corta/realça onde a mistura foge à curva. Português claro: é o EQ que aproxima a tua mistura do som de referência do género.</p>
+
+  <h3 id="st-bio">2b · Mitigação biológica</h3>
+  <p>Com <code>bio_strength</code> &gt; 0, aplica cortes ergonómicos nas zonas que cansam o ouvido:</p>
+  <ul>
+    <li><b>harsh</b> — excesso em 2–5 kHz (agressividade);</li>
+    <li><b>sibilância</b> — excesso em 5–10 kHz (desperdício de agudos);</li>
+    <li><b>boxy</b> — excesso em 200–500 Hz (tom de caixa);</li>
+    <li><b>boomy</b> — excesso &lt; 125 Hz (graves borramentos).</li>
+  </ul>
+  <p>Só atua nas bandas que o EQ corretivo ainda não tratou (não filtra em duplicado). Recomendação: 30–50 % em mixes agressivas; para cima disso o master ganha limpeza mas pode perder caráter.</p>
+
+  <h3 id="st-tape">3 · Saturação de fita</h3>
+  <p>Joelho suave <b>só nos picos acima de −6 dBFS</b>: silêncios e níveis médios passam com slope 1 (zero distorção de fundo). O <b>drive</b> (0–12 dB) escala a dureza do joelho; o <b>mix</b> cruza entre sinal limpo e saturado. O efeito audível é o amolecimento de transientes típico da fita: o crest factor desce e aparecem harmónicos suaves. Medição inscrita em <code>test_thd.py</code>: harmónicos ≤ −44 dB relativos a 1 kHz.</p>
+  <div class="tip warn">Histórico: uma versão antiga saturava o sinal inteiro com <code>tanh</code> — misturas quentes (TP ~0 dB) eram esmagadas e o master ficava carregado de harmónicos. A versão atual, pico-a-pico, resolve isso.</div>
+
+  <h3 id="st-comp">3b/4 · Pre-ganho + Compressor glue</h3>
+  <p>Antes de comprimir, um ganho limpo (medido por LUFS) coloca a mistura num nível de trabalho consistente (alvo + 5 dB) para o compressor reagir sempre da mesma forma. Depois: compressor <i>glue</i> (pedalboard) com threshold/ratio/attack/release definidos por género — ataques 5–40 ms, releases 120–300 ms, ratios 1,2–2,5:1. Tudo ajustável no fine-tuning.</p>
+
+  <h3 id="st-shelf">5 · Shelves tonais</h3>
+  <p>Duas arestas largas (low shelf e high shelf) para retoques de tonalidade rápida. Exemplos do perfil indie: +1,5 dB @ 90 Hz e +1,5 dB @ 9 kHz; o ambient é quase neutro. O género pre-definiu, os sliders mudam à vontade.</p>
+
+  <h3 id="st-verb">5b · Ambiência (reverb de mix)</h3>
+  <p>Técnica de <i>depth</i> usada em salas de masterização para o caso específico de uma mistura que chega <b>muito seca e separada</b> («descolada») — não é um «modo ambiente» decorativo. É convolução FFT com um IR de sala sintético:</p>
+  <ul>
+    <li><b>sala curta</b> (~0,9 s de decay, tipo sala pequena/média);</li>
+    <li><b>pre-delay ~24 ms</b> — o transiente e o punch ficam no sinal seco, a imagem não se borra;</li>
+    <li><b>agudos amortecidos</b> (~7 kHz, absorção da sala) — os «s» não ganham cauda;</li>
+    <li><b>graves fora</b> (&gt;220 Hz só no wet) — o low-end nunca embacia (e o low-mono seguinte mantém o grave mono);</li>
+    <li><b>canais descorrelacionados</b> — difunde a imagem sem a estreitar;</li>
+    <li><b>wet normalizado em RMS</b> e o slider tem teto interno: a 100 % são só <b>20 % de mix</b> (a prática real anda nos 5–15 %).</li>
+  </ul>
+  <div class="tip">Regra honesta: se a mistura já tem ambiente, este controle deve ficar a 0 %. Não substitui um reverb de mixagem — é um «bálsamo» de profundidade.</div>
+
+  <h3 id="st-ms">6a · Low-end mono + Largura de imagem</h3>
+  <p>Conversão M/S: o canal <i>side</i> recebe um passa-alto (cascata ×2 = 12 dB/oct) no cut-off «Low-end mono até». Tudo abaixo dessa frequência fica mono: o grave fica sólido e igual em qualquer sistema de som. Em seguida, a <b>Largura da imagem</b> multiplica o side do sinal inteiro: 0 % = mono total; 100 % = neutro; até 150 % = imagem aberta. Como o side abaixo do cut-off já é ~zero, o low-end permanece mono.</p>
+
+  <h3 id="st-exc">6b · Exciter harmónico</h3>
+  <p>Com <code>exc_amount</code> &gt; 0: isola a banda 2,8–8,5 kHz, gera as réplicas de 2.ª e 3.ª harmónica dessa banda, e mistura <b>apenas as réplicas</b> com o sinal NÃO saturado. O brilho vem da harmonização de frequências, não de um boost de EQ — soa mais luminoso e menos agressivo do que subir um shelf nos mesmos kHz.</p>
+
+  <h3 id="st-max">7 · Loudness + Maximizer estilo Waves L2</h3>
+  <p>Última etapa — a que adequa o master às plataformas de streaming:</p>
+  <ul>
+    <li><b>Push</b> — ganho estático (dB) aplicado antes do limiter, ao estilo do L2;</li>
+    <li><b>Loop de loudness</b> — mede o TP 4× oversampled e a LUFS-I, e sobe o ganho até ao alvo (<code>LUFS alvo + push</code>); só ganho, sem waveshaping;</li>
+    <li><b>Limitador true-peak</b> — o ganho por amostra vem do envelope do sinal <b>4× oversampled</b> (os picos intersample reais), com look-ahead de 4 ms e release de 80 ms suavizado. Garantia final: TP ≤ <code>Out Ceiling</code>;</li>
+    <li><b>Maxximizer/IDR</b> (opcional) — soft-clip de uma passada só nos excessos acima do ceiling; dá loudness extra ao custo do crest (usar com moderação).</li>
+  </ul>
+  <div class="tip">O LED do passo 3 mede a % de amostras «coladas» ao topo do limiter: &lt; 0,05 % verde · &lt; 1 % amarelo · ≥ 1 % vermelho. O vermelho não é um erro: um master «agarrado ao limiter» o tempo todo é uma decisão estética (estilo EDM) — mas, normalmente, indica um push alto demais.</div>
+
+  <!-- ==================================================================== -->
+  <h2 id="metricas">Métricas</h2>
+  <table>
+    <tr><th>Métrica</th><th>O que é</th><th>Como se usa aqui</th></tr>
+    <tr><td><b>LUFS-I</b></td><td>Loudness integrada (ITU-R BS.1770, ponderação K); é o número que as plataformas usam para normalizar a reprodução.</td><td>Alvo do género (ex.: −9 no indie); o master termina exatamente no alvo (tolerância ±0,3 LU).</td></tr>
+    <tr><td><b>True peak (dBTP)</b></td><td>O pico real da onda reconstruída com oversampling 4× — inclui os picos intersample.</td><td>Garantia da cadeia: TP ≤ ceiling (−1 dBTP por defeito; meta por plataforma no export).</td></tr>
+    <tr><td><b>LRA</b></td><td>Loudness Range (EBU R128), em LU — a variação dinâmica do master.</td><td>&lt; 3,5 = muito comprimido (o Auto sugere soltar a compressão); &gt; 8,5 = falta densidade.</td></tr>
+    <tr><td><b>Correlação estéreo</b></td><td>De −1 (fase invertida) a +1 (mono). Valores altos = imagem estreita.</td><td>Monitorizada antes/depois; o low-end mono sobe-a no grave de propósito.</td></tr>
+    <tr><td><b>Espectro 1/3 oitava</b></td><td>Nível por banda ISO de 20 Hz a 20 kHz.</td><td>Comparado com a curva-alvo; alimenta o EQ corretivo e o gráfico de barras do passo 3.</td></tr>
+  </table>
+
+  <!-- ==================================================================== -->
+  <h2 id="controles">Controles do fine-tuning (19)</h2>
+  <table>
+    <tr><th>Controle</th><th>Faixa</th><th>Faz</th></tr>
+    <tr><td>LUFS alvo</td><td>−20 … −6 LU</td><td>loudness final do master (o perfil do género dá o ponto de partida).</td></tr>
+    <tr><td>Intensidade do EQ corretivo</td><td>0 … 150 %</td><td>escala os desvios vs curva-alvo (0 % = EQ off).</td></tr>
+    <tr><td>Out Ceiling (dBTP)</td><td>−3 … −0,01</td><td>teto true peak final.</td></tr>
+    <tr><td>Push (loudness extra)</td><td>0 … 15 dB</td><td>ganho estático antes do limiter — loudness ganha no ceiling (a estética L2).</td></tr>
+    <tr><td>Mitigação biológica</td><td>0 … 100 %</td><td>cortes ergonómicos: harsh/sibilância/boxy/boomy.</td></tr>
+    <tr><td>Exciter</td><td>0 … 100 %</td><td>réplicas harmónicas 2,8–8,5 kHz.</td></tr>
+    <tr><td>Maxximizer / IDR</td><td>0 … 100 %</td><td>soft-clip estilístico nos excessos (loudness com crest baixo).</td></tr>
+    <tr><td>Drive de fita</td><td>0 … 12 dB</td><td>dureza do joelho da saturação por picos.</td></tr>
+    <tr><td>Mix de saturação</td><td>0 … 100 %</td><td>cruzamento limpo ↔ saturado.</td></tr>
+    <tr><td>Reverb de mix (Ambiência)</td><td>0 … 100 %</td><td>técnica de depth: sala curta sintética a % baixas (teto interno 20 % de mix) para colar misturas secas.</td></tr>
+    <tr><td>Compressor: Threshold / Ratio / Ataque / Release</td><td>−20…0 dB · 1:1…4:1 · 1–100 ms · 50–600 ms</td><td>compressão glue.</td></tr>
+    <tr><td>Low shelf · freq / ganho</td><td>40–160 Hz · ±4 dB</td><td>peso do grave.</td></tr>
+    <tr><td>High shelf · freq / ganho</td><td>4–14 kHz · ±4 dB</td><td>brilho/ar.</td></tr>
+    <tr><td>HPF (limpeza)</td><td>16–60 Hz</td><td>corta o sub que chupa headroom.</td></tr>
+    <tr><td>Largura da imagem (side)</td><td>0 … 150 %</td><td>M/S: 0 % = mono total · 100 % neutro · 150 % imagem aberta.</td></tr>
+    <tr><td>Low-end mono até</td><td>80–400 Hz</td><td>frequência abaixo da qual a imagem fica mono.</td></tr>
+  </table>
+
+  <!-- ==================================================================== -->
+  <h2 id="export">Export por plataforma</h2>
+  <p>Specs idênticas agrupam-se num único ficheiro (o tooltip no hover mostra o grupo):</p>
+  <table>
+    <tr><th>Grupo</th><th>Serve</th><th>Meta</th></tr>
+    <tr><td><b>−14 LUFS</b></td><td>Spotify · YouTube · Amazon · Tidal</td><td>as 4 normalizam a −14 na reprodução</td></tr>
+    <tr><td><b>−15 LUFS</b></td><td>Deezer</td><td>ajusta a −15</td></tr>
+    <tr><td><b>−16 LUFS</b></td><td>Apple Music</td><td>Sound Check mira −16</td></tr>
+  </table>
+  <p>No export o push desliga (o spec <i>é</i> o alvo) e o TP fica ≤ −1 dBTP para todos. Saída em WAV 24-bit com verificação <code>spec_ok</code>. Repetir um export já renderizado (mesmo perfil/alvo) sai <b>em cache</b> — instantâneo (~1 s, só re-medição).</p>
+
+  <!-- ==================================================================== -->
+  <h2 id="arquitetura">Arquitetura da app</h2>
+  <div class="card">
+    <div class="flow">
+      <div class="frow">
+        <div class="fbox"><b>Browser — <code>static/index.html</code></b><small>single-page em JS vanilla: upload, painel de fine-tuning, A/B com <code>&lt;audio&gt;</code>, gráfico em DOM, LED de clipping. Sem frameworks.</small></div>
+      </div>
+      <div class="farrow"></div>
+      <div class="frow">
+        <div class="fbox"><b>FastAPI — <code>app.py</code> · 127.0.0.1:7860</b><small>endpoints JSON + ficheiros estáticos. Renderização pesada via <code>run_in_threadpool</code> para não bloquear o event loop.</small></div>
+      </div>
+      <div class="farrow"></div>
+      <div class="fsplit">
+        <div class="fbox"><b><code>JOBS</code> — memória</b><small>dict <code>uid → {ficheiro, análise, género}</code>. A sessão vive enquanto o servidor estiver ativo; se der 404, volta a carregar o ficheiro.</small></div>
+        <div class="fbox"><b><code>uploads/</code></b><small>WAVs renderizados (original, master, pré-escuta, exports) servidos por <code>/audio</code> e <code>/download</code>.</small></div>
+      </div>
+      <div class="farrow"></div>
+      <div class="frow">
+        <div class="fbox"><b>DSP — numpy / scipy / pedalboard / pyloudnorm</b><small>biquads RBJ implementados no app, resample polifásico 4× (scipy), Compressor (pedalboard), medidor BS.1770 (pyloudnorm). Processamento em float64; float32 só no ficheiro final.</small></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="api">API (resumo)</h2>
+  <table>
+    <tr><th>Endpoint</th><th>Método</th><th>Faz</th></tr>
+    <tr><td><code>/process</code></td><td>POST multipart</td><td>upload + análise + master completo; devolve <code>uid</code> (chave da sessão), métricas, parâmetros e urls.</td></tr>
+    <tr><td><code>/remaster</code></td><td>POST JSON</td><td>re-render com o perfil final; <code>preview: true</code> renderiza só o excerto de 20 s.</td></tr>
+    <tr><td><code>/auto</code></td><td>POST JSON</td><td>decisão automática (biologia + dinâmica LRA) sem re-upload.</td></tr>
+    <tr><td><code>/export_platform</code></td><td>POST JSON</td><td>render normalizado à meta da plataforma (com cache: mesmo uid + perfil + alvo devolve o mesmo ficheiro).</td></tr>
+    <tr><td><code>/genres</code></td><td>GET</td><td>lista de géneros com LUFS padrão.</td></tr>
+    <tr><td><code>/audio/{name}</code> · <code>/download/{name}</code></td><td>GET</td><td>streaming e download dos WAVs (com guarda de path-traversal).</td></tr>
+  </table>
+  <p class="dim">Suite de testes: <code>test_api.py</code> (E2E), <code>test_export.py</code> (grupos + cache), <code>test_f2_api.py</code> (auto), <code>test_thd.py</code> (distorção), <code>test_tape.py</code> (A/B do tape), <code>test_l2.py</code> / <code>test_tpfix.py</code> (regressões do limiter).</p>
+
+  <!-- ==================================================================== -->
+  <h2 id="glossario">Glossário</h2>
+  <dl class="gloss">
+    <dt>LUFS-I (Loudness Units, Full Scale — integrado)</dt><dd>Medida de perceção de volume (ITU-R BS.1770) que as plataformas de streaming usam para normalizar a reprodução. Exemplo: o Spotify toca tudo a −14 LUFS — baixa masters mais altos e não toca masters mais silenciosos. A intensidade interna (compressão, ceiling) do master permanece a que puseres.</dd>
+    <dt>dBFS</dt><dd>Nível digital relativo à escala completa (0 dBFS = máximo que o ficheiro pode guardar). Distinto de dBTP.</dd>
+    <dt>True peak (dBTP)</dt><dd>Pico máximo da forma de onda <i>reconstruída</i> (após oversampling), medindo também o que acontece <i>entre</i> amostras.</dd>
+    <dt>Pico intersample</dt><dd>Pico da onda contínua que não se vê nos valores por amostra — típico de material duramente limitado. É a razão de a app limitar pelo envelope 4× oversampled.</dd>
+    <dt>Oversampling (4×)</dt><dd>Interpolação polifásica que gera 4 amostras intercaladas por cada amostra original, para medir e limitar os picos intersample.</dd>
+    <dt>LRA (Loudness Range)</dt><dd>Amplitude dinâmica de loudness (EBU R128, em LU). LRA baixo = master comprimido; LRA alto = master dinâmico.</dd>
+    <dt>Crest factor</dt><dd>Relação pico/RMS, em dB. Crest alto = dinâmico; crest baixo = esmagado.</dd>
+    <dt>M/S (Mid/Side)</dt><dd>Decomposição estéreo: <b>Mid</b> = soma dos canais (conteúdo comum/mono), <b>Side</b> = diferença L−R (conteúdo estéreo). Constrói e de-constrói-se com álgebra simples.</dd>
+    <dt>Sinal side</dt><dd>A diferença entre o canal esquerdo e o direito — só existe onde os dois canais divergem. A «Largura da imagem» escala este sinal sem tocar no Mid.</dd>
+    <dt>Glue compression</dt><dd>Compressor lento, ratio baixa (1,2–2,5:1), threshold por cima do material — percebe-se como «cola» da mistura em vez de esmagamento de transientes.</dd>
+    <dt>Shelf (filtro de prateleira)</dt><dd>Filtro de ganho constante acima (high shelf) ou abaixo (low shelf) de uma frequência, com transição suave.</dd>
+    <dt>Joelho (knee)</dt><dd>Curva suave na transição da compressão/limitação. Joelho suave = transição gradual em vez de tudo-de-repente.</dd>
+    <dt>Look-ahead limiter</dt><dd>Limitador que «olha» alguns ms à frente do sinal e suaviza o ganho de redução — evita o efeito «zipper» do ganho por amostra.</dd>
+    <dt>IDR / Maxximizer</dt><dd>Loudness extra via soft-clip de uma passada nos excessos acima do ceiling — técnica associada ao Waves L2. Dá resultado imediato, mas ao custo do crest.</dd>
+    <dt>boomy / boxy / harsh / sibilância</dt><dd>Rótulos de diagnóstico do excesso: graves borramentos (&lt; 125 Hz), corpo «de caixa» (200–500 Hz), agressividade (2–5 kHz), agudos espetados (5–10 kHz).</dd>
+    <dt>Exciter harmónico</dt><dd>Gera harmónicos de 2.ª/3.ª de uma banda e mistura-os no sinal limpo: brilho obtido por harmonização de frequências.</dd>
+    <dt>Ambiência (reverb de mix)</dt><dd>Técnica de <i>depth</i> exclusiva de masterização: um reverb muito curto e filtrado misturado a % baixas num master. Não serve para criar espaço — serve para «colar» uma mistura que seca demais e soa separada/descolada. Em stereo extrema, usa-se muitas vezes só no canal side.</dd>
+    <dt>THD (Total Harmonic Distortion)</dt><dd>Energia em harmónicos que não existem na fonte. Medida em <code>test_thd.py</code>; alvo da app: ≤ −45 dB relativo a 1 kHz.</dd>
+    <dt>spec_ok</dt><dd>Verificação do export: LUFS dentro de ±0,6 da meta e TP ≤ meta do ceiling + 0,05.</dd>
+    <dt>Curva-alvo (target curve)</dt><dd>Balanço espectral de referência por género (dB relativos a 1 kHz, 31 bandas). É o «espelho»: o EQ corretivo reduz o desvio entre a tua mistura e esta curva.</dd>
+    <dt>Push</dt><dd>Ganho estático antes do limiter. É o truque central do Waves L2: empurrar o material até o limitador trabalhar, ganhando loudness no ceiling.</dd>
+    <dt>Anchor (âncora de pré-escuta)</dt><dd>Os 20 s mais energéticos da música, detetados automaticamente — usados nos renders rápidos do fine-tuning.</dd>
+  </dl>
+
+  <p class="dim" style="margin-top:40px">MasteringApp · documentação para acompanhar o estado atual do repo (detalhe técnico completo no README.md).</p>
+</div>
+</body>
+</html>

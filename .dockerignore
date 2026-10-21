@@ -1,0 +1,14 @@
+.venv/
+uploads/
+__pycache__/
+*.py[cod]
+test_*.py
+make_test_mix.py
+make_test_mix_short.py
+run.bat
+tape_out.txt
+thd_out.txt
+*.wav
+.git/
+build/
+dist/

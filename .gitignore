@@ -1,0 +1,19 @@
+# ambiente Python / caches
+.venv/
+__pycache__/
+*.py[cod]
+
+# artefactos de build e binários
+build/
+dist/
+
+# dados do utilizador e ficheiros gerados
+uploads/
+*.wav
+tape_out.txt
+thd_out.txt
+
+# ficheiros de sistema
+Thumbs.db
+desktop.ini
+.DS_Store

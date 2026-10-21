@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d0b07">
+<meta name="description" content="Mastering Suite — masterização local para Windows. Análise psicoacústica, perfis por género, cadeia de 9 estágios e export por plataforma. Sem conta, sem nuvem: o áudio nunca sai do teu PC.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230d0b07' width='192' height='192' rx='36'/><text x='96' y='132' font-family='Consolas, monospace' font-size='120' font-weight='bold' fill='%23d9a92c' text-anchor='middle'>M</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Mastering Suite — Masterização local para Windows</title>
+<style>
+  :root {
+    --bg: #0d0b07;
+    --bg2: #131009;
+    --panel: #17130b;
+    --line: rgba(217, 169, 44, .16);
+    --line-soft: rgba(231, 192, 90, .08);
+    --text: #ede4cf;
+    --dim: #a2937a;
+    --faint: #6f6350;
+    --brand: #d9a92c;
+    --brand-hi: #e7c05a;
+    --brand-lo: #c9a02e;
+    --ink: #241c07;
+    --brand-soft: rgba(217, 169, 44, .10);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Figtree", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(217, 169, 44, .35); color: #fff; }
+  .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+
+  /* ---------- header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(13, 11, 7, .82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .nav {
+    max-width: 1080px; margin: 0 auto; padding: 14px 24px;
+    display: flex; align-items: center; gap: 28px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 7px; flex: none;
+    background: linear-gradient(135deg, var(--brand-hi), var(--brand-lo));
+    color: var(--ink); font: 700 16px "JetBrains Mono", monospace;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .brand b { font-size: 15px; font-weight: 700; letter-spacing: .01em; }
+  .nav nav { margin-left: auto; display: flex; align-items: center; gap: 22px; }
+  .nav a.lk {
+    font: 500 12px/1 "JetBrains Mono", monospace; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+  }
+  .nav a.lk:hover { color: var(--brand-hi); }
+
+  /* ---------- botões ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font: 600 13px/1 "JetBrains Mono", monospace; letter-spacing: .02em;
+    padding: 13px 20px; border-radius: 10px; text-decoration: none;
+    cursor: pointer; transition: transform .15s ease, box-shadow .15s ease,
+      border-color .15s ease, color .15s ease;
+  }
+  .btn.primary {
+    background: linear-gradient(180deg, var(--brand-hi), var(--brand-lo));
+    color: var(--ink); border: 1px solid rgba(255, 235, 180, .35);
+  }
+  .btn.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(217, 169, 44, .30);
+  }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .btn.ghost:hover { border-color: var(--brand); color: var(--brand-hi); }
+  .btn.off {
+    background: var(--panel); color: var(--faint); border: 1px dashed var(--line);
+    cursor: not-allowed; transform: none; box-shadow: none;
+  }
+  .btn.small { padding: 9px 14px; font-size: 12px; }
+
+  /* ---------- herói ---------- */
+  .hero { max-width: 1080px; margin: 0 auto; padding: 92px 24px 64px; text-align: center; }
+  .kicker {
+    font: 600 12px/1 "JetBrains Mono", monospace; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--brand);
+  }
+  .hero h1 {
+    margin: 22px auto 0; max-width: 800px;
+    font-size: clamp(2.4rem, 6vw, 4.2rem); font-weight: 800;
+    letter-spacing: -.02em; line-height: 1.06;
+  }
+  .hero h1 em { font-style: normal; color: var(--brand-hi); }
+  .hero .lead {
+    margin: 22px auto 0; max-width: 640px; color: var(--dim); font-size: 1.06rem;
+  }
+  .ctas { margin-top: 34px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .hero-meta { margin-top: 18px; font: 400 12px/1.6 "JetBrains Mono", monospace; color: var(--faint); }
+
+  /* ---------- visual (waveform) ---------- */
+  .visual-wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 40px; }
+  .visual {
+    position: relative; overflow: hidden;
+    background: linear-gradient(180deg, var(--bg2), var(--panel));
+    border: 1px solid var(--line-soft); border-radius: 16px;
+    padding: 18px 22px 14px;
+  }
+  .visual-bar {
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    font: 500 11px/1.4 "JetBrains Mono", monospace; color: var(--faint);
+    letter-spacing: .06em; margin-bottom: 10px;
+  }
+  .visual-bar b { color: var(--brand); font-weight: 600; }
+  .wavebox { position: relative; }
+  .wavebox svg { display: block; width: 100%; height: auto; }
+  .playhead {
+    position: absolute; top: 4%; bottom: 4%; left: 1%; width: 2px;
+    background: linear-gradient(180deg, transparent, var(--brand-hi), transparent);
+    box-shadow: 0 0 14px rgba(231, 192, 90, .8);
+    animation: sweep 9s linear infinite;
+  }
+  @keyframes sweep { from { left: 1%; } to { left: 99%; } }
+  .visual-legend { margin-top: 8px; font: 400 11px/1.5 "JetBrains Mono", monospace; color: var(--faint); }
+
+  /* ---------- secções ---------- */
+  section { max-width: 1080px; margin: 0 auto; padding: 84px 24px; }
+  section h2 {
+    margin-top: 18px; font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+    font-weight: 800; letter-spacing: -.015em; line-height: 1.15;
+  }
+  section .lead { margin-top: 14px; color: var(--dim); max-width: 620px; }
+
+  .grid3 {
+    margin-top: 48px; display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .cardx {
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: 14px;
+    padding: 24px 22px; transition: transform .18s ease, border-color .18s ease;
+  }
+  .cardx:hover { transform: translateY(-3px); border-color: var(--line); }
+  .cardx .num {
+    font: 700 13px/1 "JetBrains Mono", monospace; color: var(--brand);
+    letter-spacing: .1em;
+  }
+  .cardx h3 { margin-top: 14px; font-size: 16px; font-weight: 700; }
+  .cardx p { margin-top: 8px; font-size: 14px; color: var(--dim); }
+
+  /* ---------- modos ---------- */
+  .grid2 { margin-top: 48px; display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+  .mode {
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: 14px;
+    padding: 28px 26px;
+  }
+  .mode .num {
+    font: 600 12px/1 "JetBrains Mono", monospace; color: var(--brand); letter-spacing: .14em;
+  }
+  .mode h3 { margin-top: 12px; font-size: 20px; font-weight: 800; }
+  .mode p { margin-top: 10px; font-size: 14px; color: var(--dim); }
+  .mode ul { margin-top: 14px; list-style: none; }
+  .mode li {
+    font-size: 13.5px; color: var(--dim); padding: 7px 0 7px 22px; position: relative;
+    border-top: 1px solid var(--line-soft);
+  }
+  .mode li::before { content: "▸"; position: absolute; left: 2px; color: var(--brand); }
+
+  /* ---------- cadeia ---------- */
+  .chain { margin-top: 48px; display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+  .stage {
+    flex: 1 1 150px; min-width: 150px;
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: 12px;
+    padding: 16px 14px;
+  }
+  .stage h4 { font-size: 13.5px; font-weight: 700; color: var(--brand-hi); }
+  .stage p { margin-top: 6px; font: 400 11.5px/1.5 "JetBrains Mono", monospace; color: var(--faint); }
+  .arrow {
+    align-self: center; color: var(--brand); font: 700 16px "JetBrains Mono", monospace;
+    flex: none;
+  }
+
+  /* ---------- downloads ---------- */
+  .dl-grid { margin-top: 48px; display: grid; gap: 16px; grid-template-columns: 1.15fr .85fr; }
+  .dl-primary {
+    border-radius: 16px; padding: 30px 28px;
+    background:
+      linear-gradient(180deg, var(--panel), var(--panel)) padding-box,
+      linear-gradient(135deg, rgba(231, 192, 90, .55), rgba(201, 160, 46, .18) 45%, rgba(231, 192, 90, .35)) border-box;
+    border: 1px solid transparent;
+  }
+  .badge {
+    display: inline-block; font: 600 10.5px/1 "JetBrains Mono", monospace;
+    letter-spacing: .16em; color: var(--brand-hi);
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px;
+  }
+  .dl-primary h3 { margin-top: 16px; font-size: 22px; font-weight: 800; }
+  .dl-primary > p { margin-top: 10px; font-size: 14px; color: var(--dim); }
+  .dl-primary .btn { margin-top: 22px; width: 100%; padding: 15px 20px; }
+  .dl-note { margin-top: 12px; font: 400 12px/1.6 "JetBrains Mono", monospace; color: var(--faint); text-align: center; }
+  .dl-meta {
+    margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px 18px;
+    font: 500 11.5px/1.5 "JetBrains Mono", monospace; color: var(--faint);
+  }
+  .dl-sec { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 16px; padding: 30px 28px; }
+  .dl-sec h3 { font-size: 18px; font-weight: 800; }
+  .dl-sec > p { margin-top: 8px; font-size: 13.5px; color: var(--dim); }
+  .dl-sec ol { margin-top: 18px; list-style: none; }
+  .dl-sec li { padding: 14px 0; border-top: 1px solid var(--line-soft); }
+  .dl-sec li b { font-size: 14px; }
+  .dl-sec li p { font-size: 12.5px; color: var(--dim); margin: 4px 0 12px; }
+
+  /* ---------- rodapé ---------- */
+  footer { border-top: 1px solid var(--line-soft); }
+  .foot {
+    max-width: 1080px; margin: 0 auto; padding: 28px 24px;
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between;
+    font: 400 12px/1.6 "JetBrains Mono", monospace; color: var(--faint);
+  }
+  .foot nav { display: flex; gap: 18px; }
+  .foot a { color: var(--dim); text-decoration: none; }
+  .foot a:hover { color: var(--brand-hi); }
+
+  /* ---------- reveal ---------- */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (max-width: 820px) {
+    .nav nav a.lk { display: none; }
+    .grid2, .dl-grid { grid-template-columns: 1fr; }
+    .chain { flex-direction: column; }
+    .arrow { transform: rotate(90deg); align-self: flex-start; margin-left: 8px; }
+    .hero { padding-top: 64px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="/product">
+      <span class="brand-mark">M</span>
+      <b>Mastering Suite</b>
+    </a>
+    <nav>
+      <a class="lk" href="#features">O que faz</a>
+      <a class="lk" href="#chain">Cadeia</a>
+      <a class="lk" href="#download">Download</a>
+      <a class="btn primary small" href="/">Abrir a app</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ═══════════════ herói ═══════════════ -->
+<div class="hero">
+  <div class="kicker">Masterização local · Windows · v1.0</div>
+  <h1>A tua mistura, com decisão de <em>master</em>.</h1>
+  <p class="lead">O MasteringApp analisa a tua mixagem — excessos boomy, boxy, harsh e sibilância,
+    dinâmica LRA — aplica uma cadeia de 9 estágios afinada por género e exporta pronto para cada
+    plataforma. Tudo local: sem conta e sem nuvem.</p>
+  <div class="ctas">
+    <a class="btn primary" id="btnSetup" href="/get-setup" download>Download para Windows</a>
+    <a class="btn ghost" href="/">Abrir a app</a>
+  </div>
+  <div class="hero-meta" id="setupMeta">MasteringApp-Setup-1.0.0.exe · 45 MB · o áudio nunca sai do teu computador</div>
+</div>
+
+<div class="visual-wrap">
+  <div class="visual">
+    <div class="visual-bar">
+      <span><b>MIX_FINAL.WAV</b> · 8 PERFIS · −9 A −16 LUFS</span>
+      <span>ANÁLISE ✓ · LRA 4,2 · TP −1,0 dB</span>
+    </div>
+    <div class="wavebox">
+      <svg id="waveSvg" viewBox="0 0 960 220" preserveAspectRatio="none" role="img"
+           aria-label="Forma de onda do master com a curva-alvo do género"></svg>
+      <div class="playhead"></div>
+    </div>
+    <div class="visual-legend">barras: forma de onda após a cadeia · linha dourada: curva-alvo do género</div>
+  </div>
+</div>
+
+<!-- ═══════════════ o que faz ═══════════════ -->
+<section id="features">
+  <div class="reveal">
+    <div class="kicker">O que faz</div>
+    <h2>Tudo entre «mistura crua» e «master entregue».</h2>
+    <p class="lead">Sem plugins e sem instalação para começar — a análise, o render e a pré-escuta
+      correm no teu disco, em segundos.</p>
+  </div>
+  <div class="grid3">
+    <div class="cardx reveal">
+      <div class="num">01</div>
+      <h3>Análise que ouve como ouvido treinado</h3>
+      <p>Espectro vs curva-alvo do género, índices de excesso boomy / boxy / harsh / sibilância,
+        LUFS integrado, LRA, true peak e correlação estéreo.</p>
+    </div>
+    <div class="cardx reveal">
+      <div class="num">02</div>
+      <h3>Perfis por género</h3>
+      <p>8 perfis com curvas-alvo e metas de intensidade — Indie Rock a −9 LUFS, Pop,
+        Electrónica, Krautrock / Vintage, Noise / Drone… Começas de um ponto com gosto, não do zero.</p>
+    </div>
+    <div class="cardx reveal">
+      <div class="num">03</div>
+      <h3>Fine-tuning em 19 controlos</h3>
+      <p>Fita, compressor, shelves, ambiência, low-mono, width, exciter e limiter —
+        cada um com o seu knob, tudo em pré-escuta de 20 segundos.</p>
+    </div>
+    <div class="cardx reveal">
+      <div class="num">04</div>
+      <h3>Auto com diff visível</h3>
+      <p>«Ajustar à minha mistura» mede a tua mixagem e mostra exatamente o que muda antes de
+        aplicar — e respeita as tuas escolhas manuais. «Repor perfil» faz o caminho de volta.</p>
+    </div>
+    <div class="cardx reveal">
+      <div class="num">05</div>
+      <h3>Pré-escuta A/B instantânea</h3>
+      <p>Compara mistura vs master sem esperas: o render corre localmente e a pré-escuta
+        mantém-se em cache enquanto afinas os knobs.</p>
+    </div>
+    <div class="cardx reveal">
+      <div class="num">06</div>
+      <h3>Export por plataforma</h3>
+      <p>Spotify, YouTube, Amazon e Tidal a −14 LUFS; Apple Music, Deezer, Bandcamp… com o nome
+        certo: <span class="mono">MinhaMix_master_-14LUFS.wav</span>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ modos ═══════════════ -->
+<section>
+  <div class="reveal">
+    <div class="kicker">Duas maneiras de trabalhar</div>
+    <h2>Do confiança ao detalhe — nos dois sentidos.</h2>
+  </div>
+  <div class="grid2">
+    <div class="mode reveal">
+      <div class="num">MODO 01</div>
+      <h3>Manual</h3>
+      <p>Uma consola skeuomórfica com 19 controlos ao detalhe — puxa a fita, abre a ambiência,
+        aperta o limiter, e ouve cada mudança em pré-escuta imediata.</p>
+      <ul>
+        <li>Knobs, LCDs e medidores LED — cada secção com o seu painel</li>
+        <li>Fita, exciter e ambiência desligados por defeito: ativas quando quiseres</li>
+        <li>Diagnóstico em texto: a cadeia aplicada, por escrito</li>
+      </ul>
+    </div>
+    <div class="mode reveal">
+      <div class="num">MODO 02</div>
+      <h3>Auto</h3>
+      <p>«Ajustar à minha mistura» mede a biologia da mixagem e a dinâmica, propõe ajustes
+        <i>sobre</i> o que já tens e aplica-os em pré-escuta — com a lista de mudanças à vista.</p>
+      <ul>
+        <li>Mede excessos boomy / boxy / harsh / sibilância + LRA</li>
+        <li>Respeita escolhas manuais: bio só ativa, nunca reduz</li>
+        <li>«Repor perfil» devolve o perfil puro do género num clique</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ cadeia ═══════════════ -->
+<section id="chain">
+  <div class="reveal">
+    <div class="kicker">Caminho de sinal</div>
+    <h2>Nove estágios, por esta ordem.</h2>
+    <p class="lead">A ordem é a do ouvido: limpar, colorir, comprimir, equilibrar, colar,
+      firmar, brilhar, limitar.</p>
+  </div>
+  <div class="chain reveal">
+    <div class="stage"><h4>HPF</h4><p>corta o sub inútil (22–26 Hz)</p></div>
+    <div class="arrow">→</div>
+    <div class="stage"><h4>EQ biológica</h4><p>mitiga boomy / boxy / harsh</p></div>
+    <div class="arrow">→</div>
+    <div class="stage"><h4>Fita</h4><p>saturação suave, cola a mix</p></div>
+    <div class="arrow">→</div>
+    <div class="stage"><h4>Compressor</h4><p>grão e micro-pump do género</p></div>
+    <div class="arrow">→</div>
+    <div class="stage"><h4>Shelves</h4><p>inclinam graves e agudos</p></div>
+    <div class="arrow">→</div>
+    <div class="stage"><h4>Ambiência</h4><p>reverb de mix p/ colar secas</p></div>
+    <div class="arrow">→</div>
+    <div class="stage"><h4>Low-mono + Width</h4><p>firma o grave, abre o stereo</p></div>
+    <div class="arrow">→</div>
+    <div class="stage"><h4>Exciter</h4><p>harmónicos de brilho</p></div>
+    <div class="arrow">→</div>
+    <div class="stage"><h4>Limiter L2</h4><p>final, com true peak fix</p></div>
+  </div>
+</section>
+
+<!-- ═══════════════ download ═══════════════ -->
+<section id="download">
+  <div class="reveal">
+    <div class="kicker">Levá-lo para casa</div>
+    <h2>Instala — ou simplesmente abre.</h2>
+    <p class="lead">A mesma app nos dois casos: a versão desktop embrulha a app browser numa
+      janela nativa, com acesso direto a ficheiros.</p>
+  </div>
+  <div class="dl-grid">
+    <div class="dl-primary reveal">
+      <span class="badge">RECOMENDADO</span>
+      <h3>MasteringApp para Windows</h3>
+      <p>Instalador por-utilizador — sem UAC e sem admin: janela nativa com WebView2,
+        ícone próprio, atalhos e desinstalador limpo (as tuas misturas ficam no lugar).</p>
+      <a class="btn primary" id="btnSetup2" href="/get-setup" download>Download instalador (.exe)</a>
+      <div class="dl-note" id="setupNote">preferes um zip? a versão portátil está ao lado →</div>
+      <div class="dl-meta">
+        <span>v1.0.0</span><span>Windows 10 / 11 · x64</span><span>45 MB</span>
+      </div>
+    </div>
+    <div class="dl-sec reveal">
+      <h3>Sem instalar</h3>
+      <p>Para experimentar ou levar no pen drive.</p>
+      <ol>
+        <li>
+          <b>Zip portátil</b>
+          <p>Descompacta, corre <span class="mono">MasteringApp.exe</span> — não escreve nada no registo.</p>
+          <a class="btn ghost small" id="btnZip" href="/get-portable" download>Download zip portátil</a>
+        </li>
+        <li>
+          <b>Direto no browser</b>
+          <p>Corre em <span class="mono">127.0.0.1:7860</span> — funciona offline depois de aberta; tudo local.</p>
+          <a class="btn ghost small" href="/">Abrir a app no browser</a>
+        </li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="foot">
+    <span>© 2026 Mastering Suite · masterização 100% local</span>
+    <nav>
+      <a href="/static/help.html">MANUAL</a>
+      <a href="/">Abrir a app</a>
+      <a href="#download">Download</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+/* ---- forma de onda + curva-alvo (geradas uma vez, determinísticas) ---- */
+(function () {
+  const svg = document.getElementById('waveSvg');
+  const W = 960, H = 220, N = 110, mid = H / 2;
+  const noise = i => { const s = Math.sin(i * 12.9898) * 43758.5453; return s - Math.floor(s); };
+  const env = t => Math.max(0.16, Math.min(1,
+    Math.sin(Math.PI * Math.min(1, t * 1.12)) * (0.58 + 0.42 * Math.sin(t * 9.7 + 1.3))));
+  let bars = '', tops = [];
+  const bw = (W - 16) / N;
+  for (let i = 0; i < N; i++) {
+    const t = i / N, n = noise(i);
+    const h = Math.max(3, env(t) * (0.62 + 0.38 * n) * H * 0.42);
+    const x = 8 + i * bw;
+    const hot = n > 0.87;
+    bars += '<rect x="' + x.toFixed(1) + '" y="' + (mid - h).toFixed(1) +
+            '" width="4.5" height="' + (h * 2).toFixed(1) + '" rx="2.2" fill="' +
+            (hot ? '#e7c05a' : 'rgba(217,169,44,0.32)') + '"/>';
+    if (i % 9 === 0) tops.push([x + 2, mid - h * 1.06]);
+  }
+  const curve = 'M ' + tops.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L ');
+  svg.innerHTML = bars +
+    '<path d="' + curve + '" fill="none" stroke="#d9a92c" stroke-width="2" ' +
+    'stroke-linecap="round" opacity="0.9" stroke-dasharray="1400" stroke-dashoffset="1400" ' +
+    'style="animation: drawc 2.4s ease-out .3s forwards"/>' +
+    '<line x1="8" y1="' + mid + '" x2="' + (W - 8) + '" y2="' + mid +
+    '" stroke="rgba(237,228,207,0.10)" stroke-width="1"/>';
+  const st = document.createElement('style');
+  st.textContent = '@keyframes drawc{to{stroke-dashoffset:0}}';
+  document.head.appendChild(st);
+})();
+
+/* ---- revelação ao scroll ---- */
+(function () {
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+})();
+
+/* ---- os binários acompanham esta instalação? ---- */
+async function probe(url, btn, meta) {
+  try {
+    const r = await fetch(url, { method: 'HEAD' });
+    if (!r.ok) throw new Error();
+  } catch (e) {
+    btn.classList.remove('primary', 'ghost');
+    btn.classList.add('off');
+    btn.removeAttribute('href');
+    btn.textContent = 'Indisponível nesta instalação';
+    if (meta) meta.textContent = 'o binário não acompanha esta instalação — usa o pacote dist/ do projeto';
+  }
+}
+probe('/get-setup', document.getElementById('btnSetup'), document.getElementById('setupMeta'));
+probe('/get-setup', document.getElementById('btnSetup2'), document.getElementById('setupNote'));
+probe('/get-portable', document.getElementById('btnZip'), null);
+</script>
+</body>
+</html>
