@@ -84,12 +84,13 @@ não vão para o git — para o instalador/portátil, publica-os nas Releases.
 - **`/app`** (=`/app/index.html`) — a app: análise, cadeia e export
   (`static/index.html`). Os CTAs «Abrir a app» da página de produto apontam
   aqui; a janela nativa do .exe abre `/app` também.
-- Os CTAs de download usam `/get-setup` e `/get-portable`, que servem os
-  binários de `dist/`
-  (`MasteringApp-Setup-1.0.0.exe`, `MasteringApp-portable.zip`) quando
-  existem — procura primeiro ao lado do exe (empacotado), depois
-  `<projeto>/dist/` (dev); sem binário, o botão passa a «Indisponível nesta
-  instalação» (traduzido). Chip «PRODUTO» no cabeçalho da app liga à página.
+- Os CTAs de download apontam aos **assets da release do GitHub** (fixos:
+  `releases/latest/download/MasteringApp-Setup-1.0.0.exe` e
+  `…/MasteringApp-portable.zip` — ver `RELEASE_BASE` no fim de
+  `static/product.html`). Exceção offline: se o binário existir **localmente**
+  — ao lado do .exe (empacotado) ou em `<projeto>/dist/` (dev) — o botão usa
+  `"/get-setup"`/`"/get-portable"` e serve-o do disco. Chip «PRODUTO» no
+  cabeçalho da app liga à página.
 
 ## Executável local (PyInstaller)
 
@@ -136,6 +137,31 @@ Fechar a janela = fechar o app (o servidor encerra com ele).
 - verificação E2E do instalador feita: instalar silencioso → correr o app
   instalado (server 200 + fix do toast no HTML servido) → desinstalar
   silencioso → pasta limpa
+
+## Releases (downloads do site)
+
+Os downloads `.exe`/`.zip` do site saem das **GitHub Releases**. Quando sai
+versão nova:
+
+1. Rebuild: `.venv\Scripts\pyinstaller.exe --noconfirm --name MasteringApp
+   --onedir --windowed --icon "static\app_icon.ico" --version-file
+   "version.txt" --collect-all pedalboard --collect-all webview --collect-all
+   pythonnet --collect-all clr_loader --hidden-import multipart
+   --hidden-import webview.platforms.winforms --add-data "static;static"
+   desktop.py` (muda o nº em `version.txt` antes)
+2. Zip: `Compress-Archive dist\MasteringApp dist\MasteringApp-portable.zip`
+   (apagar o zip antigo primeiro) — e atualizar o nome do ficheiro se a
+   versão mudar (o nome do asset tem de bater certo com os links do site)
+3. Instalador: `ISCC.exe installer.iss` (Inno Setup 6)
+4. GitHub → repo → **Releases → Draft a new release** → tag `v1.x.x` →
+   anexa `dist/MasteringApp-Setup-1.x.x.exe` + `dist/MasteringApp-portable.zip`
+   → **Publish** — os links «latest/download» apontam à nova release
+   automaticamente; se o nome do ficheiroizer mudou, atualiza `RELEASE_BASE`
+   nos 3 CTAs + as 3 chamadas `bind()` em `static/product.html`
+
+O endpoint `/get-setup`/`/get-portable` continua a servir binários locais
+(quando existem) — no site público (Railway) os CTAs ficam sempre no
+caminho do GitHub.
 
 ## Deploy no Railway
 

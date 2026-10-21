@@ -276,7 +276,7 @@
     dinâmica LRA — aplica uma cadeia de 9 estágios afinada por género e exporta pronto para cada
     plataforma. Tudo local: sem conta e sem nuvem.</p>
   <div class="ctas">
-    <a class="btn primary" id="btnSetup" href="/get-setup" download data-i18n="hero.dl">Download para Windows</a>
+    <a class="btn primary" id="btnSetup" href="https://github.com/dferreiramarques/masteringapp/releases/latest/download/MasteringApp-Setup-1.0.0.exe" download data-i18n="hero.dl">Download para Windows</a>
     <a class="btn ghost" href="/app" data-i18n="btn.open2">Abrir a app</a>
   </div>
   <div class="hero-meta" id="setupMeta" data-i18n="hero.meta">MasteringApp-Setup-1.0.0.exe · 45 MB · o áudio nunca sai do teu computador</div>
@@ -420,7 +420,7 @@
       <h3 data-i18n="dlp.h3">MasteringApp para Windows</h3>
       <p data-i18n="dlp.p">Instalador por-utilizador — sem UAC e sem admin: janela nativa com WebView2,
         ícone próprio, atalhos e desinstalador limpo (as tuas misturas ficam no lugar).</p>
-      <a class="btn primary" id="btnSetup2" href="/get-setup" download data-i18n="dlp.btn">Download instalador (.exe)</a>
+      <a class="btn primary" id="btnSetup2" href="https://github.com/dferreiramarques/masteringapp/releases/latest/download/MasteringApp-Setup-1.0.0.exe" download data-i18n="dlp.btn">Download instalador (.exe)</a>
       <div class="dl-note" id="setupNote" data-i18n="dlp.note">preferes um zip? a versão portátil está ao lado →</div>
       <div class="dl-meta">
         <span>v1.0.0</span><span data-i18n="dlp.win">Windows 10 / 11 · x64</span><span>45 MB</span>
@@ -433,7 +433,7 @@
         <li>
           <b data-i18n="dls1b">Zip portátil</b>
           <p data-i18n="dls1p">Descompacta, corre <span class="mono">MasteringApp.exe</span> — não escreve nada no registo.</p>
-          <a class="btn ghost small" id="btnZip" href="/get-portable" download data-i18n="dls1btn">Download zip portátil</a>
+          <a class="btn ghost small" id="btnZip" href="https://github.com/dferreiramarques/masteringapp/releases/latest/download/MasteringApp-portable.zip" download data-i18n="dls1btn">Download zip portátil</a>
         </li>
         <li>
           <b data-i18n="dls2b">Direto no browser</b>
@@ -473,8 +473,6 @@ const I18N = {
     'vis.bar2': 'ANÁLISE ✓ · LRA 4,2 · TP −1,0 dB',
     'vis.wave': 'Forma de onda do master com a curva-alvo do género',
     'vis.legend': 'barras: forma de onda após a cadeia · linha dourada: curva-alvo do género',
-    'probe.off': 'Indisponível nesta instalação',
-    'probe.note': 'o binário não acompanha esta instalação — usa o pacote dist/ do projeto',
     'feat.kick': 'O que faz',
     'feat.h2': 'Tudo entre «mistura crua» e «master entregue».',
     'feat.lead': 'Sem plugins e sem instalação para começar — a análise, o render e a pré-escuta correm no teu disco, em segundos.',
@@ -548,8 +546,6 @@ const I18N = {
     'vis.bar2': 'ANALYSIS ✓ · LRA 4.2 · TP −1.0 dB',
     'vis.wave': 'Master waveform with the genre target curve',
     'vis.legend': 'bars: waveform after the chain · gold line: genre target curve',
-    'probe.off': 'Not available in this install',
-    'probe.note': 'the binary does not ship with this install — use the project dist/ package',
     'feat.kick': 'What it does',
     'feat.h2': 'Everything between “raw mix” and “delivered master”.',
     'feat.lead': 'No plugins and no install to get started — analysis, rendering and 20-second preview run on your disk, in seconds.',
@@ -622,9 +618,7 @@ function applyLang(l) {
   if (d) d.setAttribute('content', dict['meta.desc']);
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const v = dict[el.getAttribute('data-i18n')];
-    if (v == null) return;
-    if (el.dataset.off) v = null; // botão/meta indisponível: manter o texto de fallback
-    el.innerHTML = el.dataset.off ? dict[el.dataset.off] : v;
+    if (v != null) el.innerHTML = v;
   });
   document.querySelectorAll('[data-i18n-aria]').forEach(el => {
     const v = dict[el.getAttribute('data-i18n-aria')];
@@ -641,22 +635,17 @@ document.getElementById('btnLang').addEventListener('click', () => {
   applyLang(lang === 'pt' ? 'en' : 'pt');
 });
 
-/* ---- os binários acompanham esta instalação? (i18n-aware) ---- */
-function probe(url, btn, meta) {
-  fetch(url, { method: 'HEAD' }).then(r => {
-    if (!r.ok) throw new Error();
-  }).catch(() => {
-    btn.classList.remove('primary', 'ghost');
-    btn.classList.add('off');
-    btn.removeAttribute('href');
-    btn.dataset.off = 'probe.off';          // texto de fallback no toggle de língua
-    if (meta) meta.dataset.off = 'probe.note';
-    applyLang(lang);
-  });
+/* ---- downloads: a release do GitHub é o caminho principal; o binário local
+      (dist/ ou ao lado do .exe), quando existe, é preferido (offline) ---- */
+const RELEASE_BASE = 'https://github.com/dferreiramarques/masteringapp/releases/latest/download/';
+async function bind(urlLocal, ghUrl, btn) {
+  let local = false;
+  try { local = (await fetch(urlLocal, { method: 'HEAD' })).ok; } catch (e) {}
+  btn.href = local ? urlLocal : ghUrl;
 }
-probe('/get-setup', document.getElementById('btnSetup'), document.getElementById('setupMeta'));
-probe('/get-setup', document.getElementById('btnSetup2'), document.getElementById('setupNote'));
-probe('/get-portable', document.getElementById('btnZip'), null);
+bind('/get-setup', RELEASE_BASE + 'MasteringApp-Setup-1.0.0.exe', document.getElementById('btnSetup'));
+bind('/get-setup', RELEASE_BASE + 'MasteringApp-Setup-1.0.0.exe', document.getElementById('btnSetup2'));
+bind('/get-portable', RELEASE_BASE + 'MasteringApp-portable.zip', document.getElementById('btnZip'));
 </script>
 </body>
 </html>
