@@ -49,7 +49,8 @@
        color:#efe9db; text-shadow:0 1px 0 #000; font-weight:400; }
   h1 span { color: var(--acc); }
   .help-round {
-    position:absolute; right:0; top:-4px; padding:5px 12px; border-radius:4px;
+    display:inline-block; margin-left:10px; padding:5px 12px; border-radius:4px;
+    vertical-align:4px;
     background:linear-gradient(180deg,#f0c655,#c79a24); color:#241c07;
     font-size:12px; font-weight:700; letter-spacing:2px; text-decoration:none;
     border:1px solid #7c5f10; box-shadow:0 2px 0 #6e5510, 0 3px 6px rgba(0,0,0,.6);
@@ -186,7 +187,21 @@
     border-color:#7c5f10; text-shadow:none;
     box-shadow: 0 2px 0 #6e5510, 0 3px 6px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.4);
   }
+  /* dois <audio> empilhados no mesmo sítio: A/B SONORO contínuo — trocar
+     quieta/mute (sem trocar src => sem buraco de buffering nas trocas) */
+  .abwrap { position:relative; min-height:44px; }
+  .abwrap audio { width:100%; }
+  .abwrap audio.alt { position:absolute; top:0; left:0; }
   audio { width:100%; }
+  /* read-out de LUFS-M aproximado (ápice K-weighting, 0.4 s) do que toca */
+  #mtr {
+    display:inline-block; min-width:110px; text-align:right;
+    background:linear-gradient(180deg,#111114,#0a0a0c); color:var(--acc);
+    font-family:ui-monospace, Consolas, monospace; font-weight:700;
+    font-size:12.5px; letter-spacing:1px; padding:5px 10px; border-radius:4px;
+    border:1px solid #000; box-shadow: inset 0 2px 8px #000;
+    text-shadow: 0 0 7px rgba(217,169,44,.55); white-space:nowrap;
+  }
   a.dl { color:#8a5a10; text-decoration:none; font-size:14px; font-weight:600; }
   a.dl:hover { text-decoration:underline; }
 
@@ -232,6 +247,13 @@
   .led.warn { background:#e8b73a; box-shadow:0 0 8px #e8b73acc, inset 0 0 3px #fff5; }
   .led.clip { background:#e04848; box-shadow:0 0 9px #e04848dd, inset 0 0 3px #fff5; }
 
+  .platrow button.cmpb { padding:4px 12px; font-size:13px; margin:0; }
+  .platgrid button.active {
+    background:linear-gradient(180deg,#f0c655,#c79a24); color:#241c07;
+    border-color:#7c5f10; text-shadow:none;
+    box-shadow: 0 2px 0 #6e5510, 0 3px 6px rgba(0,0,0,.5);
+  }
+
   /* texto inline legado (var(--dim)) dentro de painéis creme */
   .card [style*="--dim"] { color:#6e6960 !important; }
 
@@ -243,7 +265,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>&nbsp;+ Master<span>ing</span>App
+  <h1>Master<span>ing</span>App
     <a class="help-round" href="/product" title="Página do produto: o que faz, a cadeia de sinal e downloads">PRODUTO</a>
     <a class="help-round" href="/static/help.html" target="_blank" rel="help"
        title="Documentação: como funciona, cada controlo, arquitetura e glossário (F1)">MANUAL</a>
@@ -295,10 +317,14 @@
       <div class="ab" style="margin-top:10px">
         <button id="btnA" class="active" onclick="switchAB('A')">A — Original</button>
         <button id="btnB" onclick="switchAB('B')">B — Master</button>
+        <span id="mtr" title="LUFS-M aproximado (momentâneo, ponderação K) do que está a tocar: o pico mostra para onde vai a energia">M — LU</span>
         <span id="ledClip" class="led" title="clipping"></span>
         <span id="ledTxt" style="font-size:11px;color:var(--dim)"></span>
       </div>
-      <audio id="audio" controls preload="auto"></audio>
+      <div class="abwrap">
+        <audio id="aA" controls preload="auto"></audio>
+        <audio id="aB" controls preload="auto" class="hidden alt"></audio>
+      </div>
       <div style="font-size:13px;color:var(--dim);margin-top:10px" id="abnote"></div>
       <p style="font-size:14px;margin:8px 0 0">
         <a class="dl" id="dlMaster" download>↓ descarregar master (24-bit WAV)</a> &nbsp;·&nbsp;
@@ -314,6 +340,22 @@
       </p>
       <div id="platGrid" class="platgrid"></div>
       <div id="platList"></div>
+    </div>
+
+    <div class="card">
+      <span class="step">6 · Comparar géneros</span>
+      <p style="font-size:13px;color:var(--dim);margin:8px 0 0">
+        A <b>pré-escuta de 20 s</b> (a parte mais energética) masterizada pelo <b>perfil puro</b>
+        de cada género — o que cada estética faz à TUA mistura. Escolhe até 3 e compara
+        os renders (cache: re-clique é instantâneo).
+      </p>
+      <div id="cmpGrid" class="platgrid"></div>
+      <div class="btnrow" style="margin-top:10px">
+        <button id="cmpGo" onclick="runCompare()">Comparar</button>
+        <span id="cmpNote" class="dim" style="font-size:13px"></span>
+      </div>
+      <audio id="cAud" controls preload="auto" class="hidden" style="margin-top:10px"></audio>
+      <div id="cmpList"></div>
     </div>
 
     <div class="card">
@@ -355,6 +397,7 @@
 
 <script>
 let DATA = null, cur = 'A', volA = 1, volB = 1, liveTimer = null, lastAuto = null;
+const els = { A: null, B: null };
 
 const CONTROLS = [
   { group: 'Loudness' },
@@ -402,13 +445,96 @@ async function initGenres() {
     const gs = await (await fetch('/genres')).json();
     sel.innerHTML = gs.map(g =>
       `<option value="${g.id}">${g.label} (${g.lufs} LUFS)</option>`).join('');
+    GENRE_LABELS = Object.fromEntries(gs.map(g => [g.id, g.label]));
+    buildCmpChips();
   } catch (e) {
     // fallback real: /genres falhou (ex.: arranque lento do backend) — o select
     // continuava vazio e "Analizar" escolhia undefined
     if (!sel.children.length) {
       sel.innerHTML = FALLBACK_GENRES.map(([id, label, lufs]) =>
         `<option value="${id}">${label} (${lufs} LUFS)</option>`).join('');
+      GENRE_LABELS = Object.fromEntries(FALLBACK_GENRES.map(([id, label]) => [id, label]));
+      buildCmpChips();
     }
+  }
+}
+
+/* ---------- comparação de géneros (pré-escuta 20 s do mesmo excerto) ---- */
+let GENRE_LABELS = {}, cmpSel = [], cmpBusy = false;
+const CMP_ORDER = ['indie', 'post-punk', 'krautrock', 'pop', 'electronic',
+                   'acoustic', 'ambient', 'noise'];
+const CMP_PORTS = FALLBACK_GENRES;   // [[id,label],…]
+
+function buildCmpChips() {
+  const g = document.getElementById('cmpGrid');
+  if (!g || g.children.length) return;
+  CMP_ORDER.forEach(id => {
+    const label = GENRE_LABELS[id] || (CMP_PORTS.find(x => x[0] === id) || [])[1] || id;
+    const b = document.createElement('button');
+    b.id = 'cmp_' + id;
+    b.textContent = label;
+    b.title = 'Marcar/desmarcar (até 3)';
+    b.onclick = () => {
+      const at = cmpSel.indexOf(id);
+      if (at >= 0) { cmpSel.splice(at, 1); b.classList.remove('active'); }
+      else if (cmpSel.length < 3) { cmpSel.push(id); b.classList.add('active'); }
+    };
+    g.appendChild(b);
+  });
+}
+
+const CHAR_LABELS = [['graves', 'graves'], ['low-mids', 'low-mids'], ['mids', 'meios'],
+                     ['presenca', 'presença'], ['agudos', 'agudos'], ['ar', 'ar']];
+const SIGN = v => (v > 0 ? '+' : '') + v;
+async function runCompare() {
+  if (!DATA || expBusy || cmpBusy) return;
+  const note = document.getElementById('cmpNote');
+  const err = document.getElementById('err');
+  err.textContent = '';
+  if (!cmpSel.length) { note.textContent = 'Escolhe pelo menos um género.'; return; }
+  cmpBusy = true;
+  document.getElementById('cmpGo').disabled = true;
+  document.getElementById('status').classList.remove('hidden');
+  document.getElementById('stext').textContent = 'A renderizar comparação…';
+  try {
+    const r = await fetch('/compare', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: DATA.uid, genres: cmpSel }) });
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'erro na comparação');
+    const list = document.getElementById('cmpList');
+    list.innerHTML = '';
+    j.results.forEach(row => {
+      const chars = CHAR_LABELS.filter(([k]) => row.chars && k in row.chars)
+        .map(([k, lab]) => `${lab} ${SIGN(row.chars[k])}`).join(' · ');
+      const d = document.createElement('div');
+      d.className = 'platrow';
+      d.innerHTML =
+        `<button class="cmpb" data-url="${row.url}" title="Ouvir este género (pré-escuta 20 s)">▶</button>` +
+        `<b style="min-width:190px">${row.label}</b>` +
+        `<span class="dim">${row.lufs} LUFS · ${row.tp} dBTP` +
+        `${row.clip_pct ? ' · distr. ' + row.clip_pct + '%' : ''}` +
+        `${chars ? ' · ' + chars : ''}` +
+        `${row.cached ? ' · cache' : ''}</span>`;
+      const btn = d.querySelector('button');
+      btn.onclick = () => {
+        const c = document.getElementById('cAud');
+        c.classList.remove('hidden');
+        if (els.A.src) els.A.pause();
+        if (els.B.src) els.B.pause();
+        c.src = row.url + (row.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+        c.play().catch(() => {});
+      };
+      list.appendChild(d);
+    });
+    note.textContent = 'Ouve cada render (20 s) e compara: LUFS/TP ao lado, barras = ' +
+      'quanto cada género desviou o balanço da tua mistura original.';
+  } catch (e) {
+    err.textContent = 'Erro: ' + (e.message || e);
+  } finally {
+    cmpBusy = false;
+    document.getElementById('cmpGo').disabled = false;
+    document.getElementById('status').classList.add('hidden');
   }
 }
 
@@ -466,25 +592,155 @@ function collectParams() {
 const FMT = v => v === null || v === undefined ? '—' : v;
 const fmtCorr = v => v === null || typeof v === 'undefined' ? '—' : Number(v).toFixed(2);
 
-function loadAudio(who) {
-  const a = document.getElementById('audio');
-  const t = a.currentTime, playing = !a.paused;
-  // paridade A/B no modo pré-escuta: ambos os lados o mesmo excerto de 20 s
-  const o = DATA.original;
-  const url = who === 'A' ? (DATA.preview && o.preview_url ? o.preview_url : o.url)
-                          : DATA.master.url;
-  a.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
-  a.volume = who === 'A' ? volA : volB;
-  a.addEventListener('loadedmetadata', () => {
-    try { a.currentTime = Math.min(t, a.duration - 0.05); if (playing) a.play(); } catch (e) {}
-  }, { once: true });
+/* ==========================================================================
+   A/B sonoro contínuo + LUFS-M ao vivo
+   Dois <audio> (aA/aB) empilhados: ao alternar NINGUÉM troca de src — troca-se
+   só o mute. Ambos ficam em play (o oculto silenciado), em paridade de volume
+   (compensa a diferença de LUFS), pelo que o A/B não tem salto nem buraco de
+   buffering; a troca é instantânea em qualquer ponto da música.               */
+const otherOf = el => el === els.A ? els.B : els.A;
+
+function initAB() {
+  els.A = document.getElementById('aA');
+  els.B = document.getElementById('aB');
+  [els.A, els.B].forEach(el => {
+    el.addEventListener('play', () => {
+      if (el !== els[cur]) return;
+      const o = otherOf(el);
+      ensureMeter(); hookMeter();
+      if (o.src && o.paused) { try { o.currentTime = el.currentTime; o.play().catch(() => {}); } catch (e) {} }
+      startMeter();
+    });
+    el.addEventListener('pause', () => {
+      if (el !== els[cur]) return;
+      const o = otherOf(el);
+      if (o.src && !o.paused) { try { o.pause(); } catch (e) {} }
+    });
+    el.addEventListener('seeked', () => {
+      const o = otherOf(el);
+      if (o.src) { try { o.currentTime = el.currentTime; } catch (e) {} }
+    });
+    el.addEventListener('ended', () => {
+      const o = otherOf(el);
+      if (o.src && !o.paused) { try { o.pause(); } catch (e) {} }
+    });
+  });
+  // correção de deriva: se o lado oculto fugir > 0.35 s, volta a sincronizar
+  setInterval(() => {
+    if (!DATA) return;
+    const m = els[cur], o = otherOf(m);
+    if (!m || !o || m.paused || o.paused || !o.src) return;
+    if (Math.abs(o.currentTime - m.currentTime) > 0.35) {
+      try { o.currentTime = m.currentTime; } catch (e) {}
+    }
+  }, 500);
+}
+
+function setSources(j) {
+  const uorig = (j.preview && j.original.preview_url) ? j.original.preview_url : j.original.url;
+  const umast = j.master.url;
+  const stamp = '?v=' + Date.now();
+  els.A.src = uorig + stamp;
+  els.B.src = umast + stamp;
+  const t0 = (j.preview && j.slice) ? Math.max(0, j.slice[0]) : 0;
+  [els.A, els.B].forEach(el => {
+    el.addEventListener('loadedmetadata', () => {
+      try { el.currentTime = Math.min(t0, Math.max(0, (el.duration || 0) - 0.05)); } catch (e) {}
+    }, { once: true });
+  });
+}
+
+function syncABClasses() {
+  els.A.classList.toggle('hidden', cur !== 'A');
+  els.B.classList.toggle('hidden', cur !== 'B');
+  els.A.classList.toggle('alt', cur === 'A');
+  els.B.classList.toggle('alt', cur === 'B');
+  document.getElementById('btnA').className = cur === 'A' ? 'active' : '';
+  document.getElementById('btnB').className = cur === 'B' ? 'active' : '';
 }
 
 function switchAB(who) {
-  cur = who;
-  document.getElementById('btnA').className = who === 'A' ? 'active' : '';
-  document.getElementById('btnB').className = who === 'B' ? 'active' : '';
-  loadAudio(who);
+  if (!DATA) return;
+  const from = els[cur], to = els[who];
+  if (!from || !to) return;
+  if (cur !== who) {
+    if (to.src) { try { to.currentTime = from.currentTime; } catch (e) {} }
+    // quem estava a tocar continua: o oculto engata no mesmo instante
+    if (!from.paused && to.paused) { try { to.play().catch(() => {}); } catch (e) {} }
+    if (from.paused && !to.paused) { try { to.pause(); } catch (e) {} }
+    cur = who;
+  }
+  syncABClasses();
+  updateVolumes();
+}
+
+function updateVolumes() {
+  if (els.A) els.A.volume = cur === 'A' ? volA : 0;
+  if (els.B) els.B.volume = cur === 'B' ? volB : 0;
+}
+
+/* --- LUFS-M aproximado: K-weighting (2 biquads, ITU-R 1770) sobre a janela --- */
+let actx = null, mgraph = null, meterRAF = 0;
+function ensureMeter() {
+  if (actx) {
+    if (actx.state === 'suspended') actx.resume().catch(() => {});
+    return;
+  }
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    const an = actx.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = 0;
+    const f1 = actx.createBiquadFilter();          // high-shelf +4 dB ~1.7 kHz
+    f1.type = 'highshelf'; f1.frequency.value = 1681.9744509555319;
+    f1.Q.value = 0.7071752369554196; f1.gain.value = 3.9996699547278532;
+    const f2 = actx.createBiquadFilter();          // high-pass 38 Hz
+    f2.type = 'highpass'; f2.frequency.value = 38.135470976020706;
+    f2.Q.value = 0.5003270373238773;
+    f1.connect(f2); f2.connect(an); an.connect(actx.destination);
+    mgraph = { head: f1, an, buf: new Float32Array(an.fftSize) };
+  } catch (e) { mgraph = null; }
+}
+
+function hookMeter() {
+  // chamado no primeiro play (gesto): liga os elementos ao grafo de medição
+  ensureMeter();
+  if (!mgraph) return;
+  [els.A, els.B].forEach(el => {
+    if (!el.src || el.dataset.mhook) return;
+    try { actx.createMediaElementSource(el).connect(mgraph.head); el.dataset.mhook = '1'; } catch (e) {}
+  });
+}
+
+function startMeter() {
+  if (meterRAF) return;
+  const tick = () => {
+    meterRAF = requestAnimationFrame(tick);
+    const el = els[cur];
+    let txt = '—';
+    if (mgraph && el && !el.paused) {
+      try {
+        mgraph.an.getFloatTimeDomainData(mgraph.buf);
+        let s = 0;
+        for (let i = 0; i < mgraph.buf.length; i++) s += mgraph.buf[i] * mgraph.buf[i];
+        const ms = s / mgraph.buf.length;
+        if (ms > 1e-7) {
+          // o grafo ouve o sinal JÁ atenuado pela paridade A/B: compensa o
+          // volume do elemento p/ o valor medir o FICHEIRO (comparável ao LCD)
+          const volDb = 20 * Math.log10(Math.max(el.volume, 1e-3));
+          txt = (10 * Math.log10(ms) - 0.691 - volDb).toFixed(1);
+        } else {
+          txt = '−inf';
+        }
+      } catch (e) {}
+    }
+    document.getElementById('mtr').textContent = 'M ' + txt + ' LU';
+  };
+  meterRAF = requestAnimationFrame(tick);
+}
+
+function uidFromCrypto() {
+  return (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID().replace(/-/g, '').slice(0, 10)
+    : (Math.random().toString(16).slice(2) + Date.now().toString(16)).padEnd(10, '0').slice(0, 10);
 }
 
 async function run() {
@@ -492,10 +748,13 @@ async function run() {
   const err = document.getElementById('err');
   err.textContent = '';
   if (!f) { err.textContent = 'Escolhe primeiro um ficheiro de áudio.'; return; }
+  const uid = uidFromCrypto();
   const fd = new FormData();
   fd.append('genre', document.getElementById('genre').value);
+  fd.append('auto', '1');
+  fd.append('uid', uid);
   fd.append('audio', f);
-  await send('/process', fd, 'A analisar e masterizar a música completa…');
+  await send('/process', fd, 'A analisar e masterizar a música completa…', false, uid);
 }
 
 async function remaster(quick) {
@@ -504,7 +763,7 @@ async function remaster(quick) {
                  preview: quick, params: collectParams() };
   await send('/remaster', JSON.stringify(body),
     quick ? 'A re-masterizar pré-escuta (20 s)…' : 'A re-masterizar a música completa…',
-    true);
+    true, DATA.uid);
 }
 
 function chip(text) {
@@ -559,8 +818,8 @@ async function exportPlatform(pid) {
   tick();
   const timer = setInterval(tick, 1000);
   st.classList.remove('hidden');
-  const a = document.getElementById('audio');
-  const wasPlaying = !a.paused, at0 = a.currentTime;
+  const a = els.A;                       // A/B sincronizado: mantém o foco no lado A
+  const wasPlaying = a && !a.paused, at0 = a ? a.currentTime : 0;
   try {
     const r = await fetch('/export_platform', { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -698,12 +957,22 @@ async function resetProfile() {
   }
 }
 
-async function send(url, body, msg, isJson) {
+async function send(url, body, msg, isJson, uid) {
   const err = document.getElementById('err');
   err.textContent = '';
   ['go', 'remaster', 'quick'].forEach(id => document.getElementById(id).disabled = true);
   document.getElementById('status').classList.remove('hidden');
   document.getElementById('stext').textContent = msg;
+  // progresso real do render: o backend publica estágios em /progress/{uid}
+  let poll = null;
+  if (uid) poll = setInterval(async () => {
+    try {
+      const p = await (await fetch('/progress/' + uid)).json();
+      if (p && typeof p.pct === 'number' && p.pct > 0 && p.pct < 100) {
+        document.getElementById('stext').textContent = (p.msg || msg) + ' · ' + p.pct + '%';
+      }
+    } catch (e) {}
+  }, 400);
   try {
     const r = await fetch(url, { method: 'POST',
       headers: isJson ? { 'Content-Type': 'application/json' } : {}, body });
@@ -713,6 +982,7 @@ async function send(url, body, msg, isJson) {
   } catch (e) {
     err.textContent = 'Erro: ' + (e.message || e);
   } finally {
+    if (poll) clearInterval(poll);
     ['go', 'remaster', 'quick'].forEach(id => document.getElementById(id).disabled = false);
     document.getElementById('status').classList.add('hidden');
   }
@@ -767,8 +1037,9 @@ function render(j) {
     else { volA = dbToGain(d); volB = 1; }
     volA = Math.min(1, volA); volB = Math.min(1, volB);
   }
-  cur = cur || 'A';
-  loadAudio(cur);
+  setSources(j);
+  syncABClasses();
+  updateVolumes();
 
   // LED de clipping (verde/amarelo/vermelho) com base nas amostras no topo
   const led = document.getElementById('ledClip');
@@ -798,7 +1069,15 @@ function render(j) {
 
 function dbToGain(db) { return Math.pow(10, db / 20); }
 
+initAB();
+buildCmpChips();   // com labels do fallback; initGenres refaz com os do servidor
 initGenres();
+
+// a comparação toca noutro player: pausa a A/B sincronizada (uma fonte de vez)
+document.getElementById('cAud').addEventListener('play', () => {
+  if (els.A && els.A.src && !els.A.paused) els.A.pause();
+  if (els.B && els.B.src && !els.B.paused) els.B.pause();
+});
 </script>
 </body>
 </html>

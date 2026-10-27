@@ -12,6 +12,7 @@ APENAS de ganho (look-ahead, sem waveshaping) -> TP garantido <= -1 dBTP.
 
 import io
 import json
+import re
 import sys
 import uuid
 import hashlib
@@ -46,6 +47,18 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 JOBS = {}  # uid -> {"orig": path, "name": str, "analysis": {...}, "genre": str}
 MAX_JOBS = 60   # LRU: misturas + cache de export de sessões antigas sai do disco
 
+PROGRESS = {}   # uid -> {"pct": int, "msg": str} (progresso do render, p/ a UI)
+
+
+def prog(uid, pct, msg):
+    """Regista o progresso dum render; a UI consulta GET /progress/{uid}."""
+    try:
+        PROGRESS[uid] = {"pct": int(max(0, min(100, pct))), "msg": str(msg)}
+        while len(PROGRESS) > 400:          # não cresce sem limite
+            PROGRESS.pop(next(iter(PROGRESS)), None)
+    except Exception:
+        pass
+
 
 def _drop_job(uid):
     """Apaga os ficheiros dum job (orig/master/preview/export cache) e o próprio."""
@@ -55,6 +68,7 @@ def _drop_job(uid):
         except OSError:
             pass
     JOBS.pop(uid, None)
+    PROGRESS.pop(uid, None)
 
 # ---------------------------------------------------------------------------
 # Bandas de 1/3 de oitava (centros ISO)
@@ -737,12 +751,23 @@ def idr_over(x, C_lin, s):
     return np.sign(x) * soft
 
 
-def render_master(x, sr, p, curve, spectrum):
+def render_master(x, sr, p, curve, spectrum, progress=None):
+    """Cadeia de masterização completa. `progress` = callback opcional
+    (pct, msg) que publica o estágio atual em /progress/{uid} (toast da UI)."""
+    def _pb(pct, msg):
+        if progress:
+            try:
+                progress(pct, msg)
+            except Exception:
+                pass
+
+    _pb(2, "a preparar a cadeia…")
     x = x.astype(np.float64)
 
     moves = spectral_moves(spectrum, curve, p["eq_strength"])
 
     # 1) HPF  2) EQ corretivo
+    _pb(6, "HPF + EQ corretivo…")
     fis = [rbj_highpass(sr, p["hp_hz"])] + [
         rbj_peak(sr, c, gain, 2.2) for c, gain in moves]
     x = apply_sos(x, fis)
@@ -761,6 +786,7 @@ def render_master(x, sr, p, curve, spectrum):
                 taken.add(f)
 
     # 3) saturacao de fita (slope unitaria, comprime so os picos)
+    _pb(9, "saturação de fita…")
     sat_pct = 0.0                     # distorcao real adicionada (p/ o LED)
     if p["tape_mix"] > 0.0:
         pre = x.copy()
@@ -768,16 +794,19 @@ def render_master(x, sr, p, curve, spectrum):
         sat_pct += float(np.mean(np.abs(x - pre) > 0.01)) * 100.0
 
     # 3b) pre-ganho leve p/ o compressor trabalhar sempre no mesmo nivel
+    _pb(12, "pre-ganho para LUFS alvo…")
     lin = integrated_lufs(x, sr)
     if np.isfinite(lin) and lin > -68:
         x *= 10 ** ((p["lufs_target"] + 5.0 - lin) / 20)
 
     # 4) compressao lenta "glue"
+    _pb(15, "compressor (glue)…")
     comp = Compressor(threshold_db=p["comp_threshold"], ratio=p["comp_ratio"],
                       attack_ms=p["comp_attack"], release_ms=p["comp_release"])
     x = comp(x.astype(np.float32), sr).astype(np.float64)
 
     # 5) shelves tonais largos
+    _pb(18, "shelves tonais…")
     x = apply_sos(x, [rbj_lowshelf(sr, p["low_shelf_freq"], p["low_shelf_gain"]),
                       rbj_highshelf(sr, p["high_shelf_freq"], p["high_shelf_gain"])])
 
@@ -787,9 +816,11 @@ def render_master(x, sr, p, curve, spectrum):
     #     Vai ANTES do low-mono para os graves do wet ficarem mono também.
     vmix = p.get("verb_mix", 0.0) / 100.0
     if vmix > 0.0:
+        _pb(21, "ambiência (reverb de mix)…")
         x = mix_ambience(x, sr, vmix * 0.2)
 
     # 6) low-end mono
+    _pb(24, "low-end mono + largura de imagem…")
     x = mid_side_low_mono(x, sr, p["low_mono_hz"])
 
     # 6a) largura da imagem (M/S): escala o sinal side; 1.0 = neutro
@@ -804,6 +835,7 @@ def render_master(x, sr, p, curve, spectrum):
     # 6b) exciter harmonico (replicas de freq da banda alta; default desligado)
     exc = p.get("exc_amount", 0.0) / 100.0
     if exc > 0.0:
+        _pb(27, "exciter harmónico…")
         pre = x.copy()
         x = aural_exciter(x, sr, exc)
         sat_pct += float(np.mean(np.abs(x - pre) > 0.01)) * 100.0
@@ -818,7 +850,10 @@ def render_master(x, sr, p, curve, spectrum):
 
     amt = p["lim_maxx"] / 100.0
 
-    for _ in range(8):
+    _pb(30, "Maximizer estilo L2 (look-ahead TP)…")
+
+    for it in range(8):
+        _pb(32 + it * 3, f"Maximizer/limitador (pass {it + 1}/8)…")
         tp = true_peak_db(x, sr)
         if tp > C_db + 0.05:
             # excesso: ou gain-limiting de TP, ou IDR quando ativo
@@ -849,6 +884,7 @@ def render_master(x, sr, p, curve, spectrum):
         x *= 10 ** ((need if head <= 0.05 else min(need, head)) / 20)
 
     # garantia final de ceiling (so ganho, sem distorcao)
+    _pb(56, "verificação final de true peak…")
     tp = true_peak_db(x, sr)
     if tp > C_db + 0.05:
         x = peak_limit(x, sr, ceiling=C_lin)
@@ -863,6 +899,7 @@ def render_master(x, sr, p, curve, spectrum):
     # mistura quente).
     clip_pct = min(sat_pct, 100.0)
 
+    _pb(60, "medição LUFS/TP/espectro do master…")
     x = x.astype(np.float32)
     return x, moves, {
         "lufs": integrated_lufs(x, sr),
@@ -974,9 +1011,15 @@ def genres():
 
 @app.post("/process")
 async def process(audio: UploadFile = File(...), genre: str = Form("indie"),
-                  auto: str = Form("1")):
+                  auto: str = Form("1"), uid: str = Form("")):
     if genre not in GENRES:
         raise HTTPException(400, "genero invalido")
+    # uid opcional gerado pelo cliente -> permite à UI consultar o progresso
+    uid = uid if re.fullmatch(r"[a-f0-9]{8,32}", uid or "") else uuid.uuid4().hex[:10]
+    if uid in JOBS:                      # colisão improvável: novo uid
+        uid = uuid.uuid4().hex[:10]
+    prog(uid, 2, "a ler e decodificar a mistura…")
+
     data = await audio.read()
     if len(data) > 300 * 1024 * 1024:
         raise HTTPException(413, "ficheiro demasiado grande (max 300 MB)")
@@ -1000,6 +1043,7 @@ async def process(audio: UploadFile = File(...), genre: str = Form("indie"),
     sf.write(orig_path, x, sr, subtype="PCM_24")
 
     analysis = await run_in_threadpool(analyze, x, sr)
+    prog(uid, 28, "análise concluída — a decidir o perfil…")
 
     if auto == "1":
         profile, idx, dyn_labels = await run_in_threadpool(
@@ -1014,36 +1058,45 @@ async def process(audio: UploadFile = File(...), genre: str = Form("indie"),
         _drop_job(next(iter(JOBS)))
 
     y, moves, mm = await run_in_threadpool(
-        render_master, x, sr, profile, TARGET_CURVES[genre], analysis["spectrum"])
+        render_master, x, sr, profile, TARGET_CURVES[genre], analysis["spectrum"],
+        (lambda pct, msg: prog(uid, pct, msg)))
     mm["lra"] = short_term_lra(y, sr)     # LRA do master completo (a pre-escuta salta)
+    prog(uid, 72, "a escrever WAV do master…")
 
     resp = build_response(uid, name, genre, profile, orig_path, master_path,
                           analysis, (moves, mm, y), preview=False)
+    prog(uid, 100, "pronto")
     resp["auto"] = {"applied": auto == "1",
                     "dyn": [{"metric": m, "msg": s} for m, s in dyn_labels]}
     return resp
 
 
 def _do_remaster(job, genre, profile, preview):
+    def cb(pct, msg):
+        prog(job.get("uid", "?"), pct, msg)
+
     analysis = job["analysis"]
     sr = analysis["sr"]
     x, _ = sf.read(job["orig"], always_2d=True)
     if preview:
-        seg, s0, s1 = slice_anchor(x, sr, analysis["anchor"])
+        seg, s0, slice1 = slice_anchor(x, sr, analysis["anchor"])
         # A/B em paridade: o original também é servido cortado à mesma janela
         oslice = UPLOAD_DIR / f"{job['uid']}_origslice.wav"
         sf.write(oslice, seg, sr, subtype="PCM_24")
+        prog(job["uid"], 8, "a renderizar pré-escuta…")
         y, moves, mm = render_master(seg, sr, profile, TARGET_CURVES[genre],
-                                     analysis["spectrum"])
+                                     analysis["spectrum"], cb)
         out = UPLOAD_DIR / f"{job['uid']}_preview.wav"
         resp = build_response(job["uid"], job["name"], genre, profile,
                               job["orig"], out, analysis,
                               (moves, mm, y), preview=True)
-        resp["slice"] = [round(s0, 1), round(s1, 1)]
+        resp["slice"] = [round(s0, 1), round(slice1, 1)]
         resp["original"]["preview_url"] = f"/audio/{oslice.name}"
+        prog(job["uid"], 62, "a medir o excerpto…")
         return resp
+    prog(job["uid"], 8, "a renderizar a cadeia completa…")
     y, moves, mm = render_master(x, sr, profile, TARGET_CURVES[genre],
-                                 analysis["spectrum"])
+                                 analysis["spectrum"], cb)
     mm["lra"] = short_term_lra(y, sr)     # LRA do master completo (a pre-escuta salta)
     out = UPLOAD_DIR / f"{job['uid']}_master.wav"
     resp = build_response(job["uid"], job["name"], genre, profile,
@@ -1208,7 +1261,8 @@ async def export_platform(body: dict = Body(...)):
     else:
         x, _ = sf.read(job["orig"], always_2d=True)
         y, moves, mm = await run_in_threadpool(
-            render_master, x, analysis["sr"], profile, curve, analysis["spectrum"])
+            render_master, x, analysis["sr"], profile, curve, analysis["spectrum"],
+            (lambda pct, msg: prog(uid, pct, "export " + msg)))
         sf.write(out, y, analysis["sr"], subtype="PCM_24")
 
     lufs = float(mm["lufs"])
@@ -1247,6 +1301,84 @@ async def remaster(body: dict = Body(...)):
     job["uid"] = uid
     job["genre"] = genre
     return await run_in_threadpool(_do_remaster, job, genre, profile, preview)
+
+
+@app.get("/progress/{uid}")
+def progress_now(uid: str):
+    """Progresso dum render em curso (para o toast da UI, sem polling acelerado)."""
+    return {"ok": True, **(PROGRESS.get(uid) or {"pct": 0, "msg": "a preparar…"})}
+
+
+@app.post("/compare")
+async def compare(body: dict = Body(...)):
+    """Comparar géneros: o MESMO excerto (20 s, o mais energético) masterizado
+    pelo perfil PURO de até 3 géneros. Render por género fica em cache
+    ({uid}_cmp_{genre}.wav) — re-comparar é instantâneo. Devolve, por género,
+    LUFS/TP da pré-escuta e o balanço (graves/meios/presença/agudos/ar)
+    relativo à mistura original. Autenticação/params finos ficam de fora:
+    esta vista serve para DECIDIR onde pescar o estilo."""
+    uid = str(body.get("uid", ""))
+    job = JOBS.get(uid)
+    if not job:
+        raise HTTPException(404, "mistura nao encontrada — recarrega o ficheiro")
+    wanted = []
+    for g in (body.get("genres") or []):
+        g = str(g)
+        if g in GENRES and g not in wanted:
+            wanted.append(g)
+    if not wanted:
+        raise HTTPException(400, "escolhe pelo menos um género")
+    wanted = wanted[:3]
+    prog(uid, 6, "a preparar comparação…")
+
+    analysis = job["analysis"]
+    sr = analysis["sr"]
+    x, _ = sf.read(job["orig"], always_2d=True)
+    seg, s0, s1_ = slice_anchor(x, sr, analysis["anchor"])
+
+    results = []
+    for genre in wanted:
+        profile = default_profile(genre)
+        curve = TARGET_CURVES[genre]
+        moves = spectral_moves(analysis["spectrum"], curve, profile["eq_strength"])
+        out = UPLOAD_DIR / f"{uid}_cmp_{genre}.wav"
+        cached = out.is_file()
+        if cached:
+            y, _ = sf.read(out, always_2d=True)
+            cmm = {"lufs": integrated_lufs(y, sr), "true_peak": true_peak_db(y, sr),
+                   "spectrum": band_spectrum(y, sr)}
+        else:
+            prog(uid, 10 + 25 * len(results),
+                 f"a renderizar «{GENRES[genre]['label']}»…")
+            y, moves, cmm = await run_in_threadpool(
+                render_master, seg, sr, profile, curve, analysis["spectrum"])
+            sf.write(out, y, sr, subtype="PCM_24")
+
+        chars = {}
+        for label, lo, hi in CATEGORIES:
+            key = label.split(" (")[0]
+            vs = [cmm.get("spectrum", {}).get(float(c)) for c in BAND_CENTERS
+                  if lo <= float(c) <= hi and cmm.get("spectrum", {}).get(float(c)) is not None]
+            os_ = [analysis["spectrum"].get(float(c)) for c in BAND_CENTERS
+                   if lo <= float(c) <= hi and analysis["spectrum"].get(float(c)) is not None]
+            if vs and os_:
+                chars[key] = round(float(np.mean(vs)) - float(np.mean(os_)), 1)
+
+        results.append({
+            "genre": genre,
+            "label": GENRES[genre]["label"],
+            "url": f"/audio/{out.name}",
+            "slice": [round(s0, 1), round(s1_, 1)],
+            "lufs": round(float(cmm["lufs"]), 2),
+            "tp": round(float(cmm["true_peak"]), 2),
+            "clip_pct": cmm.get("clip_pct"),
+            "cached": cached,
+            "chars": chars,
+            "chain": build_chain_text(profile, moves),
+        })
+    prog(uid, 100, "comparação pronta")
+    return {"ok": True, "uid": uid, "slice": [round(s0, 1), round(s1_, 1)],
+            "results": results}
 
 
 @app.get("/audio/{name}")
