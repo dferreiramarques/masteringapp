@@ -389,13 +389,27 @@ const CONTROLS = [
   { key: 'low_mono_hz', label: 'Low-end mono até', min: 80, max: 400, step: 10, fmt: v => v.toFixed(0) + ' Hz' },
 ];
 
+const FALLBACK_GENRES = [
+  ["indie", "Indie Rock", -9], ["post-punk", "Post-Punk", -9],
+  ["krautrock", "Krautrock / Vintage", -10], ["pop", "Pop", -8],
+  ["electronic", "Electrónica", -8], ["acoustic", "Acústico / Cantor-autor", -11],
+  ["ambient", "Experimental / Ambiental", -14], ["noise", "Noise / Drone", -8],
+];
+
 async function initGenres() {
   const sel = document.getElementById('genre');
   try {
     const gs = await (await fetch('/genres')).json();
     sel.innerHTML = gs.map(g =>
       `<option value="${g.id}">${g.label} (${g.lufs} LUFS)</option>`).join('');
-  } catch (e) { /* fallback já preenchido no HTML */ }
+  } catch (e) {
+    // fallback real: /genres falhou (ex.: arranque lento do backend) — o select
+    // continuava vazio e "Analizar" escolhia undefined
+    if (!sel.children.length) {
+      sel.innerHTML = FALLBACK_GENRES.map(([id, label, lufs]) =>
+        `<option value="${id}">${label} (${lufs} LUFS)</option>`).join('');
+    }
+  }
 }
 
 function buildTunePanel() {

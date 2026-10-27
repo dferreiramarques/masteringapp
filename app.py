@@ -44,6 +44,17 @@ UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 JOBS = {}  # uid -> {"orig": path, "name": str, "analysis": {...}, "genre": str}
+MAX_JOBS = 60   # LRU: misturas + cache de export de sessões antigas sai do disco
+
+
+def _drop_job(uid):
+    """Apaga os ficheiros dum job (orig/master/preview/export cache) e o próprio."""
+    for f in UPLOAD_DIR.glob(f"{uid}_*"):
+        try:
+            f.unlink()
+        except OSError:
+            pass
+    JOBS.pop(uid, None)
 
 # ---------------------------------------------------------------------------
 # Bandas de 1/3 de oitava (centros ISO)
@@ -975,6 +986,8 @@ async def process(audio: UploadFile = File(...), genre: str = Form("indie"),
         raise HTTPException(400, "sample rate nao suportado")
     if buf.shape[1] > 2:
         buf = buf[:, :2]
+    if buf.shape[1] == 1:        # mono: duplica o canal antes de qualquer análise
+        buf = np.repeat(buf, 2, axis=1)   # (o pipeline antigo crashava em x[:,1])
     if buf.shape[0] / sr > 20 * 60:
         raise HTTPException(400, "duracao maxima: 20 minutos")
 
@@ -997,9 +1010,12 @@ async def process(audio: UploadFile = File(...), genre: str = Form("indie"),
         idx = psycho_indices(analysis["spectrum"], TARGET_CURVES[genre])
 
     JOBS[uid] = {"orig": orig_path, "name": name, "analysis": analysis, "genre": genre}
+    while len(JOBS) > MAX_JOBS:                 # LRU: o mais antigo sai
+        _drop_job(next(iter(JOBS)))
 
     y, moves, mm = await run_in_threadpool(
         render_master, x, sr, profile, TARGET_CURVES[genre], analysis["spectrum"])
+    mm["lra"] = short_term_lra(y, sr)     # LRA do master completo (a pre-escuta salta)
 
     resp = build_response(uid, name, genre, profile, orig_path, master_path,
                           analysis, (moves, mm, y), preview=False)
@@ -1028,6 +1044,7 @@ def _do_remaster(job, genre, profile, preview):
         return resp
     y, moves, mm = render_master(x, sr, profile, TARGET_CURVES[genre],
                                  analysis["spectrum"])
+    mm["lra"] = short_term_lra(y, sr)     # LRA do master completo (a pre-escuta salta)
     out = UPLOAD_DIR / f"{job['uid']}_master.wav"
     resp = build_response(job["uid"], job["name"], genre, profile,
                           job["orig"], out, analysis, (moves, mm, y),
@@ -1158,11 +1175,14 @@ async def export_platform(body: dict = Body(...)):
     job["genre"] = genre
 
     overrides = dict(body.get("params") or {})
+    try:                                        # cast defensivo (payload malformado -> default, não 500)
+        user_ceiling = float(overrides.get("lim_ceiling_db", -1.0))
+    except (TypeError, ValueError):
+        user_ceiling = -1.0
     overrides.update({
         "lufs_target": group["lufs"],
         "lim_push_db": 0.0,
-        "lim_ceiling_db": min(float(overrides.get("lim_ceiling_db", -1.0)),
-                              group["tp"]),
+        "lim_ceiling_db": min(user_ceiling, group["tp"]),
     })
     profile = merge_profile(genre, overrides)
 
