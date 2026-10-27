@@ -27,6 +27,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
 from pedalboard import Compressor
 
 # ---------------------------------------------------------------------------
@@ -990,6 +991,23 @@ def build_response(uid, name, genre, profile, orig_path, out_path,
 # FastAPI
 # ---------------------------------------------------------------------------
 app = FastAPI(title="MasteringApp")
+
+# CORS: a cópia web estática (GitHub Pages …/masteringapp/app/) é um thin client
+# que fala com o backend LOCAL (127.0.0.1:7860) — precisamos de ACAO:*, e de
+# Access-Control-Allow-Private-Network (Chromium restringe pedidos públicos->local).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+
+@app.middleware("http")
+async def _allow_private_network(request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("Access-Control-Allow-Private-Network", "true")
+    return resp
 
 
 @app.get("/")

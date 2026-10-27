@@ -84,13 +84,25 @@ não vão para o git — para o instalador/portátil, publica-os nas Releases.
 - **`/app`** (=`/app/index.html`) — a app: análise, cadeia e export
   (`static/index.html`). Os CTAs «Abrir a app» da página de produto apontam
   aqui; a janela nativa do .exe abre `/app` também.
+
+### GitHub Pages (site público estático)
+
+- `…/masteringapp/` → **página de produto** (estática; downloads apontam às
+  Releases do GitHub).
+- `…/masteringapp/app/` → **UI thin client**: fala com o backend **local**
+  MasteringApp a correr no teu PC (`127.0.0.1:7860`); deteção automática com
+  banner offline e retry cada 4 s (`?pages=1` força o modo Pages p/ testes).
+  O `app.py` expõe CORS com `Access-Control-Allow-Private-Network` para o
+  browser permitir a ligação público→localhost.
+- build local: `python build_site.py site` (o mesmo script usa o workflow).
+- Pré-requisito único: repo → **Settings → Pages → Build and deployment →
+  Source: “GitHub Actions”**.
 - Os CTAs de download apontam aos **assets da release do GitHub** (fixos:
   `releases/latest/download/MasteringApp-Setup-1.0.0.exe` e
   `…/MasteringApp-portable.zip` — ver `RELEASE_BASE` no fim de
   `static/product.html`). Exceção offline: se o binário existir **localmente**
   — ao lado do .exe (empacotado) ou em `<projeto>/dist/` (dev) — o botão usa
-  `"/get-setup"`/`"/get-portable"` e serve-o do disco. Chip «PRODUTO» no
-  cabeçalho da app liga à página.
+  `"/get-setup"`/`"/get-portable"` e serve-o do disco.
 
 ## Executável local (PyInstaller)
 

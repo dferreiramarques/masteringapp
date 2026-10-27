@@ -231,6 +231,9 @@
   details[open] > summary { color:#221e18; }
   .chip { display:inline-block; background:#201d18; color:#e9e3d4; border:1px solid #050505;
           border-radius:10px; font-size:12px; padding:3px 10px; margin:0 8px 6px 0; }
+  .offline { border:1px solid var(--acc); background:#26241d; color:#e9e3d4;
+             font-size:13px; padding:10px 14px; border-radius:4px; margin-top:10px; }
+  .offline a { color:var(--acc); }
   .badge { display:inline-block; background:#c9c2b2; color:#45403a; border-radius:4px;
            font-size:11px; padding:2px 8px; margin-left:8px; vertical-align:1px; }
 
@@ -288,6 +291,7 @@
       </div>
     </div>
     <div id="tags" style="margin-top:10px"></div>
+    <div id="offline" class="offline hidden"></div>
     <div id="err" class="err"></div>
   </div>
 
@@ -395,6 +399,15 @@
 </div>
 
 <script>
+/* ---- hospedagem: github.io é a cópia web estática — o backend corre
+     LOCALMENTE (exe/portable); a página deteta e liga-se automaticamente.
+     Servida pelo backend (localhost:7860), API_BASE é vazio: mesmos origens. ---- */
+const ON_PAGES = /(^|\.)github\.io$/.test(location.hostname)
+              || new URLSearchParams(location.search).has('pages');
+const API_BASE = ON_PAGES ? 'http://127.0.0.1:7860' : '';
+const api = u => API_BASE + u;
+let backendReady = false;
+
 let DATA = null, cur = 'A', volA = 1, volB = 1, liveTimer = null, lastAuto = null;
 const els = { A: null, B: null };
 
@@ -441,11 +454,12 @@ const FALLBACK_GENRES = [
 async function initGenres() {
   const sel = document.getElementById('genre');
   try {
-    const gs = await (await fetch('/genres')).json();
+    const gs = await (await fetch(api('/genres'))).json();
     sel.innerHTML = gs.map(g =>
       `<option value="${g.id}">${g.label} (${g.lufs} LUFS)</option>`).join('');
     GENRE_LABELS = Object.fromEntries(gs.map(g => [g.id, g.label]));
     buildCmpChips();
+    backendReady = true;
   } catch (e) {
     // fallback real: /genres falhou (ex.: arranque lento do backend) — o select
     // continuava vazio e "Analizar" escolhia undefined
@@ -455,6 +469,7 @@ async function initGenres() {
       GENRE_LABELS = Object.fromEntries(FALLBACK_GENRES.map(([id, label]) => [id, label]));
       buildCmpChips();
     }
+    if (ON_PAGES) showOffline();
   }
 }
 
@@ -496,7 +511,7 @@ async function runCompare() {
   document.getElementById('status').classList.remove('hidden');
   document.getElementById('stext').textContent = 'A renderizar comparação…';
   try {
-    const r = await fetch('/compare', { method: 'POST',
+    const r = await fetch(api('/compare'), { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid: DATA.uid, genres: cmpSel }) });
     const j = await r.json();
@@ -521,7 +536,7 @@ async function runCompare() {
         c.classList.remove('hidden');
         if (els.A.src) els.A.pause();
         if (els.B.src) els.B.pause();
-        c.src = row.url + (row.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+        c.src = api(row.url) + (row.url.includes('?') ? '&' : '?') + 't=' + Date.now();
         c.play().catch(() => {});
       };
       list.appendChild(d);
@@ -602,6 +617,10 @@ const otherOf = el => el === els.A ? els.B : els.A;
 function initAB() {
   els.A = document.getElementById('aA');
   els.B = document.getElementById('aB');
+  if (ON_PAGES) {           // unidades cross-origin: CORS p/ o medidor WebAudio
+    els.A.crossOrigin = 'anonymous';
+    els.B.crossOrigin = 'anonymous';
+  }
   [els.A, els.B].forEach(el => {
     el.addEventListener('play', () => {
       if (el !== els[cur]) return;
@@ -636,8 +655,8 @@ function initAB() {
 }
 
 function setSources(j) {
-  const uorig = (j.preview && j.original.preview_url) ? j.original.preview_url : j.original.url;
-  const umast = j.master.url;
+  const uorig = api((j.preview && j.original.preview_url) ? j.original.preview_url : j.original.url);
+  const umast = api(j.master.url);
   const stamp = '?v=' + Date.now();
   els.A.src = uorig + stamp;
   els.B.src = umast + stamp;
@@ -764,7 +783,6 @@ async function remaster(quick) {
     quick ? 'A re-masterizar pré-escuta (20 s)…' : 'A re-masterizar a música completa…',
     true, DATA.uid);
 }
-
 function chip(text) {
   const tags = document.getElementById('tags');
   const s = document.createElement('span');
@@ -820,7 +838,7 @@ async function exportPlatform(pid) {
   const a = els.A;                       // A/B sincronizado: mantém o foco no lado A
   const wasPlaying = a && !a.paused, at0 = a ? a.currentTime : 0;
   try {
-    const r = await fetch('/export_platform', { method: 'POST',
+    const r = await fetch(api('/export_platform'), { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid: DATA.uid, genre: document.getElementById('genre').value,
                               platform: pid, params: collectParams() }) });
@@ -828,7 +846,7 @@ async function exportPlatform(pid) {
     if (!r.ok || !j.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'erro no export');
     const serves = (j.serves && j.serves.length > 1) ? j.serves.join(' · ') : '';
     // reuso de cache de algo ja na lista: nao duplicar, só apontar
-    const dl = j.master.download;
+    const dl = api(j.master.download);
     const li = Array.from(document.querySelectorAll('#platList .platrow a'));
     if (j.cached && li.some(x => x.getAttribute('href') === dl)) {
       li.find(x => x.getAttribute('href') === dl).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -839,7 +857,7 @@ async function exportPlatform(pid) {
     row.className = 'platrow';
     row.title = serves ? 'Ficheiro para: ' + serves : '';
     row.innerHTML =
-      `<a class="dl" href="${j.master.download}" download="${j.master.download_name || ''}">↓ ${j.platform_label}` +
+      `<a class="dl" href="${api(j.master.download)}" download="${j.master.download_name || ''}">↓ ${j.platform_label}` +
       ` &nbsp;·&nbsp; ${j.master.lufs} LUFS · ${j.master.true_peak} dBTP</a>` +
       `<span class="dim">${serves ? 'para ' + serves + ' · ' : ''}` +
       `${j.spec_ok ? '✔ conforme' : '⚠ fora de spec'} · ` +
@@ -899,7 +917,7 @@ async function runAuto() {
   document.getElementById('stext').textContent = 'A medir a mistura e a calcular o ajuste…';
   try {
     const cur = collectParams();               // perfil em uso AGORA (fonte do diff)
-    const r = await fetch('/auto', { method: 'POST',
+    const r = await fetch(api('/auto'), { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid: DATA.uid, genre: document.getElementById('genre').value,
                              params: cur }) });
@@ -936,7 +954,7 @@ async function resetProfile() {
     const sel = document.getElementById('genre');
     const genre = sel.value;
     const gLabel = sel.selectedOptions[0].textContent.split(' (')[0];
-    const r = await fetch('/profile/' + genre);
+    const r = await fetch(api('/profile/' + genre));
     const j = await r.json();
     if (!r.ok || !j.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'perfil indisponível');
     lastAuto = null;
@@ -966,14 +984,14 @@ async function send(url, body, msg, isJson, uid) {
   let poll = null;
   if (uid) poll = setInterval(async () => {
     try {
-      const p = await (await fetch('/progress/' + uid)).json();
+      const p = await (await fetch(api('/progress/' + uid))).json();
       if (p && typeof p.pct === 'number' && p.pct > 0 && p.pct < 100) {
         document.getElementById('stext').textContent = (p.msg || msg) + ' · ' + p.pct + '%';
       }
     } catch (e) {}
   }, 400);
   try {
-    const r = await fetch(url, { method: 'POST',
+    const r = await fetch(api(url), { method: 'POST',
       headers: isJson ? { 'Content-Type': 'application/json' } : {}, body });
     const j = await r.json();
     if (!r.ok || !j.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'erro no processamento');
@@ -1057,9 +1075,9 @@ function render(j) {
   document.getElementById('btnB').textContent =
     j.preview ? 'B — Master (excerto)' : 'B — Master';
 
-  document.getElementById('dlMaster').href = j.master.download;
+  document.getElementById('dlMaster').href = api(j.master.download);
   document.getElementById('dlMaster').download = j.master.download_name || '';
-  document.getElementById('dlOrig').href = j.original.download;
+  document.getElementById('dlOrig').href = api(j.original.download);
   document.getElementById('dlOrig').download = j.original.download_name || '';
   document.getElementById('abnote').textContent =
     (j.preview ? 'B = pré-escuta (20 s); o download continua a apontar para o último master completo.'
@@ -1067,6 +1085,36 @@ function render(j) {
 }
 
 function dbToGain(db) { return Math.pow(10, db / 20); }
+
+// link MANUAL relativo na cópia estática (o backend seria /static/help.html)
+if (ON_PAGES) {
+  document.querySelectorAll('a[href="/static/help.html"]').forEach(a => {
+    a.setAttribute('href', '../help.html');
+  });
+}
+
+function showOffline() {
+  const el = document.getElementById('offline');
+  el.classList.remove('hidden');
+  el.innerHTML =
+    'Estás na cópia <b>web estática</b> (GitHub Pages) — a masterização corre ' +
+    '100% na tua máquina. Abre o <b>MasteringApp</b> (exe/portable) e esta ' +
+    'página liga-se automaticamente à app local (127.0.0.1:7860). ' +
+    '<a href="../#download">⇣ fazer download</a>';
+}
+
+// autodetecção do backend local enquanto a página fica aberta no Pages
+setInterval(async () => {
+  if (!ON_PAGES || backendReady) return;
+  try {
+    const gs = await (await fetch(api('/genres'))).json();
+    const sel = document.getElementById('genre');
+    sel.innerHTML = gs.map(g =>
+      `<option value="${g.id}">${g.label} (${g.lufs} LUFS)</option>`).join('');
+    document.getElementById('offline').classList.add('hidden');
+    backendReady = true;
+  } catch (e) { /* continua à espera do exe/portable local */ }
+}, 4000);
 
 initAB();
 buildCmpChips();   // com labels do fallback; initGenres refaz com os do servidor
