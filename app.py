@@ -1052,7 +1052,9 @@ async def process(audio: UploadFile = File(...), genre: str = Form("indie"),
     if buf.shape[0] / sr > 20 * 60:
         raise HTTPException(400, "duracao maxima: 20 minutos")
 
-    uid = uuid.uuid4().hex[:10]
+    # NOTA: o uid do cliente (validado acima) mantém-se — era regenerado aqui e
+    # todos os estágios de progresso seguintes iam para um uid órfão: o toast
+    # da UI ficava congelado em "a ler e decodificar a mistura… · 2%".
     name = (Path(audio.filename or "mix.wav").stem[:40].replace(" ", "_")) or "mix"
 
     orig_path = UPLOAD_DIR / f"{uid}_orig.wav"

@@ -411,6 +411,21 @@ let backendReady = false;
 let DATA = null, cur = 'A', volA = 1, volB = 1, liveTimer = null, lastAuto = null;
 const els = { A: null, B: null };
 
+/* toast de progresso (#status): contador de referências. Com operações
+   sobrepostas (live/pré-escuta durante um render), o finally do 1.º send não
+   pode esconder o toast enquanto o 2.º corre — era isso que o fazia aparecer
+   e desaparecer a meio do trabalho. Esconde só quando o ÚLTIMO acaba. */
+let statusN = 0;
+function statusShow() {
+  if (++statusN === 1) document.getElementById('status').classList.remove('hidden');
+}
+function statusHide() {
+  if (statusN > 0 && --statusN === 0) document.getElementById('status').classList.add('hidden');
+}
+/* só o send mais recente alimenta o texto do toast: dois polls a escrever
+   stext ao mesmo tempo faziam a linha de progresso tremer entre valores */
+let sendSeq = 0;
+
 const CONTROLS = [
   { group: 'Loudness' },
   { key: 'lufs_target', label: 'LUFS alvo', min: -14, max: -6, step: 0.5, fmt: v => v.toFixed(1) + ' LU' },
@@ -508,7 +523,7 @@ async function runCompare() {
   if (!cmpSel.length) { note.textContent = 'Escolhe pelo menos um género.'; return; }
   cmpBusy = true;
   document.getElementById('cmpGo').disabled = true;
-  document.getElementById('status').classList.remove('hidden');
+  statusShow();
   document.getElementById('stext').textContent = 'A renderizar comparação…';
   try {
     const r = await fetch(api('/compare'), { method: 'POST',
@@ -548,7 +563,7 @@ async function runCompare() {
   } finally {
     cmpBusy = false;
     document.getElementById('cmpGo').disabled = false;
-    document.getElementById('status').classList.add('hidden');
+    statusHide();
   }
 }
 
@@ -845,7 +860,6 @@ async function exportPlatform(pid) {
   document.querySelectorAll('#platGrid button').forEach(b => b.disabled = true);
   const plat = PLATFORMS.find(x => x.id === pid) || { name: pid, serves: pid };
   const label = `${plat.name} ${plat.lufs || ''} LUFS`.trim();
-  const st = document.getElementById('status');
   const t0 = Date.now();
   const tick = () => {
     document.getElementById('stext').textContent =
@@ -853,7 +867,7 @@ async function exportPlatform(pid) {
   };
   tick();
   const timer = setInterval(tick, 1000);
-  st.classList.remove('hidden');
+  statusShow();
   const a = els.A;                       // A/B sincronizado: mantém o foco no lado A
   const wasPlaying = a && !a.paused, at0 = a ? a.currentTime : 0;
   try {
@@ -888,7 +902,7 @@ async function exportPlatform(pid) {
     err.textContent = 'Erro: ' + (e.message || e);
   } finally {
     clearInterval(timer);
-    st.classList.add('hidden');
+    statusHide();
     expBusy = false;
     document.querySelectorAll('#platGrid button').forEach(b => b.disabled = false);
   }
@@ -932,7 +946,7 @@ async function runAuto() {
   const err = document.getElementById('err');
   err.textContent = '';
   ['go', 'remaster', 'quick', 'btnAuto', 'btnReset'].forEach(id => document.getElementById(id).disabled = true);
-  document.getElementById('status').classList.remove('hidden');
+  statusShow();
   document.getElementById('stext').textContent = 'A medir a mistura e a calcular o ajuste…';
   try {
     const cur = collectParams();               // perfil em uso AGORA (fonte do diff)
@@ -958,7 +972,7 @@ async function runAuto() {
     err.textContent = 'Erro: ' + (e.message || e);
   } finally {
     ['go', 'remaster', 'quick', 'btnAuto', 'btnReset'].forEach(id => document.getElementById(id).disabled = false);
-    document.getElementById('status').classList.add('hidden');
+    statusHide();
   }
 }
 
@@ -967,7 +981,7 @@ async function resetProfile() {
   const err = document.getElementById('err');
   err.textContent = '';
   ['go', 'remaster', 'quick', 'btnAuto', 'btnReset'].forEach(id => document.getElementById(id).disabled = true);
-  document.getElementById('status').classList.remove('hidden');
+  statusShow();
   document.getElementById('stext').textContent = 'A repor o perfil do género…';
   try {
     const sel = document.getElementById('genre');
@@ -989,19 +1003,21 @@ async function resetProfile() {
     err.textContent = 'Erro: ' + (e.message || e);
   } finally {
     ['go', 'remaster', 'quick', 'btnAuto', 'btnReset'].forEach(id => document.getElementById(id).disabled = false);
-    document.getElementById('status').classList.add('hidden');
+    statusHide();
   }
 }
 
 async function send(url, body, msg, isJson, uid) {
   const err = document.getElementById('err');
   err.textContent = '';
+  const mySeq = ++sendSeq;             // só o send mais recente escreve o toast
   ['go', 'remaster', 'quick'].forEach(id => document.getElementById(id).disabled = true);
-  document.getElementById('status').classList.remove('hidden');
+  statusShow();
   document.getElementById('stext').textContent = msg;
   // progresso real do render: o backend publica estágios em /progress/{uid}
   let poll = null;
   if (uid) poll = setInterval(async () => {
+    if (mySeq !== sendSeq) return;     // um send mais novo tomou conta do toast
     try {
       const p = await (await fetch(api('/progress/' + uid))).json();
       if (p && typeof p.pct === 'number' && p.pct > 0 && p.pct < 100) {
@@ -1020,7 +1036,7 @@ async function send(url, body, msg, isJson, uid) {
   } finally {
     if (poll) clearInterval(poll);
     ['go', 'remaster', 'quick'].forEach(id => document.getElementById(id).disabled = false);
-    document.getElementById('status').classList.add('hidden');
+    statusHide();
   }
 }
 
