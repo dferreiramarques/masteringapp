@@ -626,7 +626,15 @@ function initAB() {
       if (el !== els[cur]) return;
       const o = otherOf(el);
       ensureMeter(); hookMeter();
-      if (o.src && o.paused) { try { o.currentTime = el.currentTime; o.play().catch(() => {}); } catch (e) {} }
+      if (o.src && o.paused) {
+        try {
+          // só arrasta o oculto se estiver realmente longe: um seek "no mesmo
+          // sítio" dispara seeked e, espelhado de volta, criava um ping-pong
+          // infinito de seeks (o áudio pausava/recomeçava sem parar)
+          if (Math.abs(o.currentTime - el.currentTime) > 0.08) o.currentTime = el.currentTime;
+          o.play().catch(() => {});
+        } catch (e) {}
+      }
       startMeter();
     });
     el.addEventListener('pause', () => {
@@ -635,10 +643,17 @@ function initAB() {
       if (o.src && !o.paused) { try { o.pause(); } catch (e) {} }
     });
     el.addEventListener('seeked', () => {
+      // SÓ o lado visível comanda: o seeked do OCULTO nunca pode mexer no
+      // visível (era isso que, ao dar play, metia A e B a dar seeks um ao
+      // outro em loop — centenas de waiting/playing por segundo).
+      if (el !== els[cur]) return;
       const o = otherOf(el);
-      if (o.src) { try { o.currentTime = el.currentTime; } catch (e) {} }
+      if (o.src && Math.abs(o.currentTime - el.currentTime) > 0.08) {
+        try { o.currentTime = el.currentTime; } catch (e) {}
+      }
     });
     el.addEventListener('ended', () => {
+      if (el !== els[cur]) return;   // o oculto que acabou não pára o visível
       const o = otherOf(el);
       if (o.src && !o.paused) { try { o.pause(); } catch (e) {} }
     });
@@ -682,7 +697,11 @@ function switchAB(who) {
   const from = els[cur], to = els[who];
   if (!from || !to) return;
   if (cur !== who) {
-    if (to.src) { try { to.currentTime = from.currentTime; } catch (e) {} }
+    // só arrasta se estiver realmente longe (evita seek redundante no elemento
+    // que está a tocar — micro-glito audível)
+    if (to.src && Math.abs(to.currentTime - from.currentTime) > 0.08) {
+      try { to.currentTime = from.currentTime; } catch (e) {}
+    }
     // quem estava a tocar continua: o oculto engata no mesmo instante
     if (!from.paused && to.paused) { try { to.play().catch(() => {}); } catch (e) {} }
     if (from.paused && !to.paused) { try { to.pause(); } catch (e) {} }
