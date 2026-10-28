@@ -1,0 +1,99 @@
+name: release
+
+# Binarios desktop (Windows + Linux) em cada tag v*:
+#   git tag v1.0.1 && git push origin v1.0.1
+# -> publica uma GitHub Release com:
+#      MasteringApp-<tag>-win64-portable.zip   (descompactar e correr)
+#      MasteringApp-<tag>-win64-setup.exe      (instalador Inno Setup)
+#      MasteringApp-<tag>-linux64.tar.gz       (descompactar e correr; abre o browser)
+# O PyInstaller nao faz cross-compile: o job Linux constroi em ubuntu-22.04
+# de proposito (glibc 2.35) para o binario correr em distros antigas e novas.
+# "Run workflow" (workflow_dispatch) constroi e publica artefactos sem Release.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Dependencias
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build (PyInstaller)
+        run: pyinstaller MasteringApp.spec
+
+      - name: Zip portable
+        shell: pwsh
+        run: Compress-Archive -Path dist\MasteringApp -DestinationPath "MasteringApp-${{ github.ref_name }}-win64-portable.zip"
+
+      - name: Instalador (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+          if (-not $iscc) {
+            $iscc = Get-ChildItem "C:\Program Files (x86)\Inno Setup*" -Recurse -Filter ISCC.exe |
+                    Select-Object -First 1
+          }
+          & $iscc.Source installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Renomear instalador
+        shell: pwsh
+        run: Move-Item "dist\MasteringApp-Setup-1.0.0.exe" "MasteringApp-${{ github.ref_name }}-win64-setup.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win64
+          path: |
+            MasteringApp-*-win64-portable.zip
+            MasteringApp-*-win64-setup.exe
+
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Dependencias
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build (PyInstaller)
+        run: pyinstaller MasteringApp.spec
+
+      - name: Empacotar tar.gz
+        run: tar czf "MasteringApp-${{ github.ref_name }}-linux64.tar.gz" -C dist MasteringApp
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux64
+          path: MasteringApp-*-linux64.tar.gz
+
+  release:
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: release
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true

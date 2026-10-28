@@ -1,16 +1,29 @@
 # -*- mode: python ; coding: utf-8 -*-
+# Build multiplataforma (Windows + Linux): pyinstaller MasteringApp.spec
+# As partes Windows-only (WebView2/.NET, recursos .ico/.version) ficam
+# condicionais — em Linux o desktop.py abre o browser em vez do webview.
+import sys
 from PyInstaller.utils.hooks import collect_all
 
 datas = [('static', 'static')]
 binaries = []
-hiddenimports = ['multipart', 'webview.platforms.winforms']
+hiddenimports = ['multipart']
+excludes = []
+exe_kwargs = {}
+if sys.platform == 'win32':
+    # pywebview via WebView2 (janela nativa Windows) precisa do bridge .NET
+    hiddenimports += ['webview.platforms.winforms']
+    tmp_ret = collect_all('pythonnet')
+    datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+    tmp_ret = collect_all('clr_loader')
+    datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+    exe_kwargs = dict(version='version.txt', icon=['static/app_icon.ico'])
+else:
+    # Linux: sem janela nativa — nao embutir o webview (GTK e fragil no freeze)
+    excludes += ['webview']
 tmp_ret = collect_all('pedalboard')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('webview')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('pythonnet')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('clr_loader')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
@@ -23,7 +36,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=excludes,
     noarchive=False,
     optimize=0,
 )
@@ -45,8 +58,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version='version.txt',
-    icon=['static/app_icon.ico'],
+    **exe_kwargs,
 )
 coll = COLLECT(
     exe,

@@ -130,6 +130,20 @@ def main():
     if not ready and server.should_exit:
         return os._exit(0)
 
+    if sys.platform.startswith("linux"):
+        # Linux: o WebView2/edgechromium e o GTK do pywebview nao se embutem
+        # bem num binario PyInstaller — abre o browser e mantem o servidor
+        # em 1o plano (Ctrl+C para sair). Mesma app, mesma URL local.
+        webbrowser.open(APP_URL)
+        print(f"MasteringApp a correr em {APP_URL}  (Ctrl+C para sair)")
+        try:
+            while not server.should_exit:
+                time.sleep(0.5)
+        except (KeyboardInterrupt, SystemExit):
+            pass
+        server.should_exit = True
+        return os._exit(0)
+
     try:
         import webview
         # janela nativa: a UI corre dentro, sem browser externo.
