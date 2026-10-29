@@ -404,9 +404,71 @@
      Servida pelo backend (localhost:7860), API_BASE é vazio: mesmos origens. ---- */
 const ON_PAGES = /(^|\.)github\.io$/.test(location.hostname)
               || new URLSearchParams(location.search).has('pages');
-const API_BASE = ON_PAGES ? 'http://127.0.0.1:7860' : '';
+/* o exe/portable usa 7860, mas se a porta estiver ocupada (outra instância
+   antiga, por exemplo) o desktop.py passa para 7861+ — a cópia web tem de
+   sondar todas para não dar "Failed to fetch" eterno */
+const API_PORTS = [7860, 7861, 7862, 7863, 7864];
+const API_ORIGIN = 'http://127.0.0.1:';
+let API_BASE = ON_PAGES ? API_ORIGIN + '7860' : '';
+let localBackendLoaded = false;       // a página foi servida pelo backend 1 vez
 const api = u => API_BASE + u;
+
+/* fetch com timeout: portas que aceitam a ligação mas nunca respondem
+   (exe pendurado) não podem prender a deteção — abortas-se em `ms` */
+async function fetchT(url, ms) {
+  const ctl = new AbortController();
+  const to = setTimeout(() => ctl.abort(), ms);
+  try { return await fetch(url, { signal: ctl.signal }); }
+  finally { clearTimeout(to); }
+}
 let backendReady = false;
+
+/* ---------- rede: "Failed to fetch" → mensagem que o utilizador percebe ----
+   O TypeError do browser ('Failed to fetch' Cr, 'Load failed' Sa,
+   'NetworkError…' Fx) significa que a página não chegou ao backend local
+   (app fechada, terminal fechado, arranque lento). Mostramos instruções e
+   ficamos a vigiar a porta; quando a app volta, a página recupera sozinha. */
+const NET_ERRS = ['failed to fetch', 'load failed', 'networkerror', 'networkrequestfailed'];
+const isNetErr = e =>
+  NET_ERRS.some(n => (String((e && e.message) || e)).toLowerCase().includes(n));
+
+function netDownUI() {
+  backendReady = false;
+  if (ON_PAGES) { showOffline(); return; }
+  const el = document.getElementById('offline');
+  el.classList.remove('hidden');
+  el.innerHTML = 'Perdemos a ligação ao <b>motor local (127.0.0.1:7860)</b> — ' +
+    'a app pode ter fechado. Abre o <b>MasteringApp</b> de novo; esta página ' +
+    'reconecta automaticamente e recarrega quando o motor voltar. ' +
+    '<span style="opacity:.7">(a vigiar a porta…)</span>';
+}
+
+let watchTimer = null;
+function watchBackend() {
+  if (watchTimer || !localBackendLoaded) return;
+  netDownUI();
+  watchTimer = setInterval(async () => {      // só recupera páginas servidas pelo backend
+    try {
+      const r = await fetchT(API_BASE + '/genres', 2500);
+      if (!r.ok) return;
+      clearInterval(watchTimer); watchTimer = null;
+      location.reload();                      // volta com tudo limpo e ligado
+    } catch (e) {}
+  }, 3000);
+}
+
+function showErr(e) {
+  const err = document.getElementById('err');
+  const m = String((e && e.message) || e);
+  if (isNetErr(e)) {                          // 'Failed to fetch' & companhia
+    err.innerHTML = 'Não consigo chegar ao <b>motor de masterização local</b>. ' +
+      'Confirma que a app <b>MasteringApp</b> está a correr ' +
+      'e tenta de novo — a página reconecta sozinha quando ele voltar.';
+    watchBackend();
+  } else {
+    err.textContent = 'Erro: ' + m;
+  }
+}
 
 let DATA = null, cur = 'A', volA = 1, volB = 1, liveTimer = null, lastAuto = null;
 const els = { A: null, B: null };
@@ -469,12 +531,13 @@ const FALLBACK_GENRES = [
 async function initGenres() {
   const sel = document.getElementById('genre');
   try {
-    const gs = await (await fetch(api('/genres'))).json();
+    const gs = await (await fetchT(api('/genres'), 4000)).json();
     sel.innerHTML = gs.map(g =>
       `<option value="${g.id}">${g.label} (${g.lufs} LUFS)</option>`).join('');
     GENRE_LABELS = Object.fromEntries(gs.map(g => [g.id, g.label]));
     buildCmpChips();
     backendReady = true;
+    if (!ON_PAGES) localBackendLoaded = true;   // a página veio do próprio backend
   } catch (e) {
     // fallback real: /genres falhou (ex.: arranque lento do backend) — o select
     // continuava vazio e "Analizar" escolhia undefined
@@ -485,6 +548,7 @@ async function initGenres() {
       buildCmpChips();
     }
     if (ON_PAGES) showOffline();
+    else if (location.protocol !== 'file:') watchBackend(); // backend atrasado/fechado
   }
 }
 
@@ -559,7 +623,7 @@ async function runCompare() {
     note.textContent = 'Ouve cada render (20 s) e compara: LUFS/TP ao lado, barras = ' +
       'quanto cada género desviou o balanço da tua mistura original.';
   } catch (e) {
-    err.textContent = 'Erro: ' + (e.message || e);
+    showErr(e);
   } finally {
     cmpBusy = false;
     document.getElementById('cmpGo').disabled = false;
@@ -899,7 +963,7 @@ async function exportPlatform(pid) {
     row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     if (wasPlaying) { try { a.currentTime = at0; a.play(); } catch (e) {} }
   } catch (e) {
-    err.textContent = 'Erro: ' + (e.message || e);
+    showErr(e);
   } finally {
     clearInterval(timer);
     statusHide();
@@ -969,7 +1033,7 @@ async function runAuto() {
     }
     await remaster(true);   // pré-escuta imediata com a decisão
   } catch (e) {
-    err.textContent = 'Erro: ' + (e.message || e);
+    showErr(e);
   } finally {
     ['go', 'remaster', 'quick', 'btnAuto', 'btnReset'].forEach(id => document.getElementById(id).disabled = false);
     statusHide();
@@ -1000,7 +1064,7 @@ async function resetProfile() {
     }
     await remaster(true);
   } catch (e) {
-    err.textContent = 'Erro: ' + (e.message || e);
+    showErr(e);
   } finally {
     ['go', 'remaster', 'quick', 'btnAuto', 'btnReset'].forEach(id => document.getElementById(id).disabled = false);
     statusHide();
@@ -1028,11 +1092,17 @@ async function send(url, body, msg, isJson, uid) {
   try {
     const r = await fetch(api(url), { method: 'POST',
       headers: isJson ? { 'Content-Type': 'application/json' } : {}, body });
-    const j = await r.json();
-    if (!r.ok || !j.ok) throw new Error(typeof j.detail === 'string' ? j.detail : 'erro no processamento');
+    let j = null;
+    try { j = await r.json(); }
+    catch (pe) { j = null; }     // corpo vazio/cortado (ligação a meio-morto)
+    if (!j || !j.ok) {           // sem corpo -> tratar como falha de rede
+      const d = j && typeof j.detail === 'string' ? j.detail : null;
+      throw new TypeError(d ? 'servidor: ' + d
+                            : 'failed to fetch (ligação ao motor instável)');
+    }
     DATA = j; render(j);
   } catch (e) {
-    err.textContent = 'Erro: ' + (e.message || e);
+    showErr(e);
   } finally {
     if (poll) clearInterval(poll);
     ['go', 'remaster', 'quick'].forEach(id => document.getElementById(id).disabled = false);
@@ -1141,14 +1211,23 @@ function showOffline() {
 // autodetecção do backend local enquanto a página fica aberta no Pages
 setInterval(async () => {
   if (!ON_PAGES || backendReady) return;
-  try {
-    const gs = await (await fetch(api('/genres'))).json();
-    const sel = document.getElementById('genre');
-    sel.innerHTML = gs.map(g =>
-      `<option value="${g.id}">${g.label} (${g.lufs} LUFS)</option>`).join('');
-    document.getElementById('offline').classList.add('hidden');
-    backendReady = true;
-  } catch (e) { /* continua à espera do exe/portable local */ }
+  for (const port of API_PORTS) {
+    try {
+      const r = await fetchT(API_ORIGIN + port + '/genres', 3000);   // porta morta mas a aceitar ligações não pode prender
+      if (!r.ok) continue;                 // porta errada / resposta inválida
+      API_BASE = API_ORIGIN + port;
+      const gs = await r.json();
+      const sel = document.getElementById('genre');
+      sel.innerHTML = gs.map(g =>
+        `<option value="${g.id}">${g.label} (${g.lufs} LUFS)</option>`).join('');
+      GENRE_LABELS = Object.fromEntries(gs.map(g => [g.id, g.label]));
+      buildCmpChips();
+      document.getElementById('offline').classList.add('hidden');
+      document.getElementById('err').textContent = '';
+      backendReady = true;
+      break;
+    } catch (e) { /* próxima porta */ }
+  }
 }, 4000);
 
 initAB();

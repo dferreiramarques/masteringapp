@@ -29,7 +29,9 @@ if errorlevel 1 goto :erro
 if errorlevel 1 goto :erro
 
 :run
-start "" http://localhost:7860/app
+rem o browser abre SO quando o backend já aceita ligações (antes abria logo,
+rem antes do uvicorn arrancar, e a 1.ª carga falhava com "Failed to fetch")
+start "" /min cmd /c "powershell -NoProfile -Command "for ($i=0; $i -lt 240; $i++) { if (Get-NetTCPConnection -LocalPort 7860 -State Listen -ErrorAction SilentlyContinue) { Start-Process 'http://localhost:7860/app'; exit }; Start-Sleep -Milliseconds 500 }""
 .venv\Scripts\python.exe -m uvicorn app:app --host 127.0.0.1 --port 7860
 goto :eof
 
